@@ -1,0 +1,66 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Waka\DashboardController;
+use App\Http\Controllers\Waka\SystemConfigController;
+use App\Http\Controllers\Waka\MasterDataController;
+use App\Http\Controllers\Waka\ScheduleController;
+
+Route::get('/', function () {
+    return redirect()->route('login');
+});
+
+// ==================== AUTH (publik) ====================
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+Route::post('/register', [AuthController::class, 'register']);
+
+Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+
+// ==================== WAKA (harus login) ====================
+Route::middleware('auth')->prefix('waka')->name('waka.')->group(function () {
+
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Toggle Cycle & Lock
+    Route::post('/toggle-cycle', [SystemConfigController::class, 'toggleCycle'])->name('toggle.cycle');
+    Route::post('/toggle-lock', [SystemConfigController::class, 'toggleLock'])->name('toggle.lock');
+
+    // Master Data - Kelas
+    Route::get('/master/classes', [MasterDataController::class, 'classes'])->name('master.classes');
+    Route::post('/master/classes', [MasterDataController::class, 'storeClass'])->name('master.classes.store');
+    Route::put('/master/classes/{id}', [MasterDataController::class, 'updateClass'])->name('master.classes.update');
+    Route::delete('/master/classes/{id}', [MasterDataController::class, 'deleteClass'])->name('master.classes.delete');
+
+    // Master Data - Ruangan
+    Route::get('/master/rooms', [MasterDataController::class, 'rooms'])->name('master.rooms');
+    Route::post('/master/rooms', [MasterDataController::class, 'storeRoom'])->name('master.rooms.store');
+    Route::put('/master/rooms/{id}', [MasterDataController::class, 'updateRoom'])->name('master.rooms.update');
+    Route::delete('/master/rooms/{id}', [MasterDataController::class, 'deleteRoom'])->name('master.rooms.delete');
+
+    // Master Data - User
+    Route::get('/master/users', [MasterDataController::class, 'users'])->name('master.users');
+    Route::post('/master/users', [MasterDataController::class, 'storeUser'])->name('master.users.store');
+    Route::put('/master/users/{id}', [MasterDataController::class, 'updateUser'])->name('master.users.update');
+    Route::delete('/master/users/{id}', [MasterDataController::class, 'deleteUser'])->name('master.users.delete');
+
+    // Jadwal (Waka yang input)
+    Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
+    Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
+    Route::put('/schedules/{id}', [ScheduleController::class, 'update'])->name('schedules.update');
+    Route::delete('/schedules/{id}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
+
+    // Rekap Jurnal
+    Route::get('/journal-recap', [ScheduleController::class, 'journalRecap'])->name('journal.recap');
+
+    // System
+    Route::get('/cycle-history', [SystemConfigController::class, 'history'])->name('cycle.history');
+    Route::get('/cycle-history/{id}', [SystemConfigController::class, 'historyDetail'])->name('cycle.history.detail');
+    Route::get('/system-config', [SystemConfigController::class, 'index'])->name('system.config');
+});
