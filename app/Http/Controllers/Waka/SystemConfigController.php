@@ -8,6 +8,7 @@ use App\Models\CycleHistory;
 use App\Models\Journal;
 use App\Models\Attendance;
 use App\Models\Schedule;
+use App\Models\Classes;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -27,10 +28,8 @@ class SystemConfigController extends Controller
             return back()->with('error', 'Tidak bisa mengubah siklus karena jadwal sudah terkunci.');
         }
 
-        // Simpan history putaran yang akan ditutup
         $this->saveCycleHistory($config);
 
-        // Ganti putaran
         $newCycle = $config->active_cycle == '1' ? '2' : '1';
 
         $config->active_cycle = $newCycle;
@@ -39,7 +38,11 @@ class SystemConfigController extends Controller
         $config->updated_by   = Auth::id();
         $config->save();
 
-        return back()->with('success', 'Siklus berhasil diubah menjadi Putaran ' . $newCycle . ' ( ' . $config->start_date->format('d M Y') . ' - ' . $config->end_date->format('d M Y') . ' )');
+        return back()->with(
+            'success',
+            'Siklus berhasil diubah menjadi Putaran ' . $newCycle .
+            ' ( ' . $config->start_date->format('d M Y') . ' - ' . $config->end_date->format('d M Y') . ' )'
+        );
     }
 
     public function toggleLock()
@@ -70,43 +73,72 @@ class SystemConfigController extends Controller
         $history = CycleHistory::with('closedBy')->findOrFail($id);
         $config = SystemConfiguration::current();
 
-        // Jurnal di periode tersebut
-        $journals = Journal::with(['schedule.teacher', 'schedule.class', 'schedule.room'])
+        $journals = Journal::with(['schedule.teacher', 'schedule.class'])
             ->whereHas('schedule', function ($q) use ($history) {
                 $q->where('cycle_type', $history->cycle_type);
             })
             ->whereBetween('date', [$history->start_date, $history->end_date])
-            ->orderBy('date')
             ->get();
 
-        // Presensi dikelompokkan per kelas
-        $attendances = Attendance::with(['student', 'journal.schedule.class'])
-            ->whereIn('journal_id', $journals->pluck('id'))
-            ->get()
-            ->groupBy(function ($item) {
-                return $item->journal->schedule->class->class_name ?? 'Tidak diketahui';
-            });
+        // Rekap per kelas
+        $classRecap = $journals
+            ->groupBy(fn ($j) => $j->schedule->class_id)
+            ->map(function ($items) {
+                $class = $items->first()->schedule->class;
+                $journalIds = $items->pluck('id');
+                $att = Attendance::whereIn('journal_id', $journalIds)->get();
 
-        // Guru + kelas yang diajar
-        $teachersData = Schedule::with(['teacher', 'class'])
-            ->where('cycle_type', $history->cycle_type)
-            ->whereHas('journals', function ($q) use ($history) {
-                $q->whereBetween('date', [$history->start_date, $history->end_date]);
-            })
-            ->get()
-            ->groupBy('teacher_id')
-            ->map(function ($schedules) {
-                $teacher = $schedules->first()->teacher;
-                $classes = $schedules->pluck('class.class_name')->unique()->values();
                 return [
-                    'name'    => $teacher->fullname ?? '-',
-                    'classes' => $classes,
+                    'class_id'   => $class->id ?? 0,
+                    'class_name' => $class->class_name ?? 'Tidak diketahui',
+                    'journals'   => $items->count(),
+                    'hadir'      => $att->where('status', 'Hadir')->count(),
+                    'izin'       => $att->where('status', 'Izin')->count(),
+                    'alpha'      => $att->where('status', 'Alpha')->count(),
+                    'total_att'  => $att->count(),
                 ];
             })
+            ->sortBy('class_name')
+            ->values();
+
+        // Rekap per guru
+        $teacherRecap = $journals
+            ->groupBy(fn ($j) => $j->schedule->teacher_id)
+            ->map(function ($items) {
+                $teacher = $items->first()->schedule->teacher;
+                $classes = $items->pluck('schedule.class.class_name')->unique()->filter()->values();
+
+                return [
+                    'name'     => $teacher->fullname ?? '-',
+                    'journals' => $items->count(),
+                    'classes'  => $classes,
+                ];
+            })
+            ->sortBy('name')
             ->values();
 
         return view('waka.cycle-history-detail', compact(
-            'history', 'config', 'journals', 'attendances', 'teachersData'
+            'history', 'config', 'classRecap', 'teacherRecap'
+        ));
+    }
+
+    public function historyByClass($id, $classId)
+    {
+        $history = CycleHistory::findOrFail($id);
+        $class = Classes::findOrFail($classId);
+        $config = SystemConfiguration::current();
+
+        $journals = Journal::with(['schedule.teacher', 'schedule.room', 'attendances.student'])
+            ->whereHas('schedule', function ($q) use ($history, $classId) {
+                $q->where('cycle_type', $history->cycle_type)
+                  ->where('class_id', $classId);
+            })
+            ->whereBetween('date', [$history->start_date, $history->end_date])
+            ->orderBy('date', 'desc')
+            ->paginate(10);
+
+        return view('waka.cycle-history-class', compact(
+            'history', 'class', 'config', 'journals'
         ));
     }
 

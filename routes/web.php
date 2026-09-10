@@ -59,8 +59,9 @@ Route::middleware('auth')->prefix('waka')->name('waka.')->group(function () {
     // Rekap Jurnal
     Route::get('/journal-recap', [ScheduleController::class, 'journalRecap'])->name('journal.recap');
 
-    // System
+    // System & History
     Route::get('/cycle-history', [SystemConfigController::class, 'history'])->name('cycle.history');
     Route::get('/cycle-history/{id}', [SystemConfigController::class, 'historyDetail'])->name('cycle.history.detail');
+    Route::get('/cycle-history/{id}/kelas/{classId}', [SystemConfigController::class, 'historyByClass'])->name('cycle.history.class');
     Route::get('/system-config', [SystemConfigController::class, 'index'])->name('system.config');
 });

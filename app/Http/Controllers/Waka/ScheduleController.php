@@ -146,6 +146,7 @@ class ScheduleController extends Controller
     {
         $config = SystemConfiguration::current();
         $today = Carbon::now()->locale('id')->isoFormat('dddd');
+        $todayDate = Carbon::today()->toDateString();
         $now = Carbon::now();
 
         $todaySchedules = Schedule::with(['teacher', 'class', 'room', 'journals'])
@@ -154,12 +155,16 @@ class ScheduleController extends Controller
             ->orderBy('start_time')
             ->get();
 
-        $sudahIsi = $todaySchedules->filter(function ($s) {
-            return $s->journals->where('date', Carbon::today()->toDateString())->count() > 0;
+        $sudahIsi = $todaySchedules->filter(function ($s) use ($todayDate) {
+            return $s->journals->contains(function ($j) use ($todayDate) {
+                return Carbon::parse($j->date)->toDateString() === $todayDate;
+            });
         });
 
-        $belumIsi = $todaySchedules->filter(function ($s) {
-            return $s->journals->where('date', Carbon::today()->toDateString())->count() == 0;
+        $belumIsi = $todaySchedules->filter(function ($s) use ($todayDate) {
+            return !$s->journals->contains(function ($j) use ($todayDate) {
+                return Carbon::parse($j->date)->toDateString() === $todayDate;
+            });
         });
 
         $terlambat = $belumIsi->filter(function ($s) use ($now) {
