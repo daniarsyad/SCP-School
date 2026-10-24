@@ -5,44 +5,123 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Schedule;
 use App\Models\SystemConfiguration;
+use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 class ScheduleController extends Controller
 {
-    // Semua jadwal di putaran aktif
-    public function index()
+    public function index(Request $request)
     {
-        $config = SystemConfiguration::current();
+        $validated = $request->validate([
+            'cycle' => 'sometimes|in:1,2',
+            'class_id' => 'sometimes|integer|exists:classes,id',
+            'day' => 'sometimes|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+        ]);
 
-        $schedules = Schedule::with(['teacher:id,fullname', 'class:id,class_name', 'room:id,room_name'])
-            ->where('cycle_type', $config->active_cycle)
-            ->orderByRaw("FIELD(day_of_week, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu')")
-            ->orderBy('start_time')
-            ->get();
+        $config = SystemConfiguration::current();
+        $user = $request->user();
+        $query = $this->baseScheduleQuery()
+            ->where('cycle_type', $validated['cycle'] ?? $config->active_cycle);
+
+        $accessError = $this->applyUserScheduleScope(
+            $query,
+            $user,
+            isset($validated['class_id']) ? (string) $validated['class_id'] : null
+        );
+
+        if ($accessError) {
+            return $accessError;
+        }
+
+        if (isset($validated['day'])) {
+            $query->where('day_of_week', $validated['day']);
+        }
 
         return response()->json([
             'success' => true,
-            'data' => $schedules
+            'data' => $this->serializeSchedules($query->orderBy('start_time')->get()),
         ]);
     }
 
     // Jadwal milik guru yang sedang login
     public function mySchedules(Request $request)
     {
+        $request->validate([
+            'cycle' => 'sometimes|in:1,2',
+        ]);
+
         $config = SystemConfiguration::current();
         $user = $request->user();
 
-        $schedules = Schedule::with(['class:id,class_name', 'room:id,room_name'])
+        if (!$user->isGuru() && !$user->isWaliKelas() && !$user->isGuruBK()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya guru yang dapat mengakses jadwal mengajarnya.',
+            ], 403);
+        }
+
+        if ($user->isWaliKelas() && !$user->class_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun Wali Kelas belum terhubung ke kelas.',
+            ], 422);
+        }
+
+        $cycle = $request->query('cycle', $config->active_cycle);
+        $schedules = $this->baseScheduleQuery()
             ->where('teacher_id', $user->id)
-            ->where('cycle_type', $config->active_cycle)
-            ->orderByRaw("FIELD(day_of_week, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu')")
+            ->where('cycle_type', $cycle)
+            ->orderByRaw("CASE day_of_week WHEN 'Senin' THEN 1 WHEN 'Selasa' THEN 2 WHEN 'Rabu' THEN 3 WHEN 'Kamis' THEN 4 WHEN 'Jumat' THEN 5 WHEN 'Sabtu' THEN 6 END")
             ->orderBy('start_time')
+            ->when($user->isWaliKelas(), function (Builder $query) use ($user) {
+                $query->where('class_id', $user->class_id);
+            })
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $schedules
+            'data' => $this->serializeSchedules($schedules),
+        ]);
+    }
+
+    // Jadwal hari ini (Guru / Siswa / Orang Tua)
+    public function today(Request $request)
+    {
+        $request->validate([
+            'class_id' => 'sometimes|integer|exists:classes,id',
+        ]);
+
+        $user = $request->user();
+        $config = SystemConfiguration::current();
+        $today = Carbon::now()->locale('id')->isoFormat('dddd');
+
+        $query = $this->baseScheduleQuery()
+            ->with(['journals' => function ($query) {
+                $query->whereDate('date', Carbon::today());
+            }])
+            ->where('cycle_type', $config->active_cycle)
+            ->where('day_of_week', $today);
+
+        $accessError = $this->applyUserScheduleScope(
+            $query,
+            $user,
+            $request->query('class_id')
+        );
+
+        if ($accessError) {
+            return $accessError;
+        }
+
+        return response()->json([
+            'success' => true,
+            'day' => $today,
+            'cycle' => (int) $config->active_cycle,
+            'data' => $this->serializeSchedules($query->orderBy('start_time')->get()),
         ]);
     }
 
@@ -86,7 +165,6 @@ class ScheduleController extends Controller
         $data = $validator->validated();
         $data['cycle_type'] = $config->active_cycle;
 
-        // Validasi bentrok
         $conflict = Schedule::where('cycle_type', $config->active_cycle)
             ->where('day_of_week', $data['day_of_week'])
             ->where(function ($q) use ($data) {
@@ -120,7 +198,110 @@ class ScheduleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Jadwal berhasil ditambahkan',
-            'data'    => $schedule->load(['teacher:id,fullname', 'class:id,class_name', 'room:id,room_name'])
+            'data'    => $this->serializeSchedules(collect([
+                $schedule->load(['teacher:id,fullname', 'class:id,class_name', 'room:id,room_name', 'period']),
+            ]))->first(),
         ], 201);
+    }
+
+    private function baseScheduleQuery(): Builder
+    {
+        return Schedule::with([
+            'teacher:id,fullname',
+            'class:id,class_name',
+            'room:id,room_name',
+            'period:id,period_number,label,start_time,end_time,is_break',
+        ]);
+    }
+
+    private function applyUserScheduleScope(
+        Builder $query,
+        User $user,
+        ?string $requestedClassId = null
+    ): ?JsonResponse {
+        if ($user->isWaliKelas()) {
+            if (!$user->class_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun Wali Kelas belum terhubung ke kelas.',
+                ], 422);
+            }
+
+            if ($requestedClassId !== null && (int) $requestedClassId !== (int) $user->class_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mengakses jadwal kelas tersebut.',
+                ], 403);
+            }
+
+            $query->where('class_id', $user->class_id);
+            return null;
+        }
+
+        if ($user->isSiswa()) {
+            if (!$user->class_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun siswa belum terhubung ke kelas.',
+                ], 422);
+            }
+
+            if ($requestedClassId !== null && (int) $requestedClassId !== (int) $user->class_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mengakses jadwal kelas tersebut.',
+                ], 403);
+            }
+
+            $query->where('class_id', $user->class_id);
+            return null;
+        }
+
+        if ($user->isOrangTua()) {
+            $classIds = User::where('parent_id', $user->id)
+                ->whereNotNull('class_id')
+                ->whereHas('role', function ($roleQuery) {
+                    $roleQuery->where('role_name', 'Siswa');
+                })
+                ->pluck('class_id')
+                ->unique()
+                ->values();
+
+            if ($requestedClassId !== null && !$classIds->contains((int) $requestedClassId)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mengakses jadwal kelas tersebut.',
+                ], 403);
+            }
+
+            $query->whereIn('class_id', $classIds);
+            if ($requestedClassId !== null) {
+                $query->where('class_id', $requestedClassId);
+            }
+            return null;
+        }
+
+        if ($user->isGuru() || $user->isGuruBK()) {
+            $query->where('teacher_id', $user->id);
+            if ($requestedClassId !== null) {
+                $query->where('class_id', $requestedClassId);
+            }
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Akses ditolak.',
+        ], 403);
+    }
+
+    private function serializeSchedules(Collection $schedules): array
+    {
+        return $schedules->map(function (Schedule $schedule) {
+            $data = $schedule->toArray();
+            $data['cycle'] = (int) $schedule->cycle_type;
+
+            return $data;
+        })->all();
     }
 }

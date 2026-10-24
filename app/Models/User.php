@@ -10,15 +10,17 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
-    public $timestamps = false;   // ← WAJIB ditambahkan
+    public $timestamps = false;
 
     protected $fillable = [
         'role_id',
         'parent_id',
         'class_id',
         'username',
+        'email',
         'password',
         'fullname',
+        'subject',
     ];
 
     protected $hidden = [
@@ -35,6 +37,11 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Classes::class, 'class_id');
     }
+    
+    public function attendances()
+    {
+    return $this->hasMany(\App\Models\Attendance::class, 'student_id');
+    }   
 
     public function parent()
     {

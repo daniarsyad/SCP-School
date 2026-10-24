@@ -9,6 +9,7 @@ use App\Models\Journal;
 use App\Models\Attendance;
 use App\Models\Schedule;
 use App\Models\Classes;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -17,6 +18,8 @@ class SystemConfigController extends Controller
     public function index()
     {
         $config = SystemConfiguration::current();
+        $this->ensureCurrentPeriod($config);
+
         return view('waka.system-config', compact('config'));
     }
 
@@ -57,7 +60,7 @@ class SystemConfigController extends Controller
         return back()->with('success', 'Jadwal berhasil ' . $status);
     }
 
-    public function history()
+    public function history(Request $request)
     {
         $histories = CycleHistory::with('closedBy')
             ->orderBy('created_at', 'desc')
@@ -65,7 +68,44 @@ class SystemConfigController extends Controller
 
         $config = SystemConfiguration::current();
 
-        return view('waka.cycle-history', compact('histories', 'config'));
+        $selectedId = $request->get('history_id', $histories->first()?->id);
+        $selected = $histories->firstWhere('id', $selectedId);
+
+        $tab = $request->get('tab', 'presensi');
+
+        $classRecap = collect();
+        $journals = collect();
+
+        if ($selected) {
+            $journals = Journal::with(['schedule.teacher', 'schedule.class'])
+                ->whereHas('schedule', fn($q) => $q->where('cycle_type', $selected->cycle_type))
+                ->whereBetween('date', [$selected->start_date, $selected->end_date])
+                ->get();
+
+            $classRecap = $journals
+                ->groupBy(fn($j) => $j->schedule->class_id)
+                ->map(function ($items) {
+                    $class = $items->first()->schedule->class;
+                    $journalIds = $items->pluck('id');
+                    $att = Attendance::whereIn('journal_id', $journalIds)->get();
+
+                    return [
+                        'class_id'   => $class->id ?? 0,
+                        'class_name' => $class->class_name ?? '-',
+                        'journals'   => $items->count(),
+                        'hadir'      => $att->where('status', 'Hadir')->count(),
+                        'izin'       => $att->where('status', 'Izin')->count(),
+                        'alpha'      => $att->where('status', 'Alpha')->count(),
+                        'sakit'      => $att->where('status', 'Sakit')->count(),
+                    ];
+                })
+                ->sortBy('class_name')
+                ->values();
+        }
+
+        return view('waka.cycle-history', compact(
+            'histories', 'config', 'selected', 'tab', 'classRecap', 'journals'
+        ));
     }
 
     public function historyDetail($id)
@@ -80,7 +120,6 @@ class SystemConfigController extends Controller
             ->whereBetween('date', [$history->start_date, $history->end_date])
             ->get();
 
-        // Rekap per kelas
         $classRecap = $journals
             ->groupBy(fn ($j) => $j->schedule->class_id)
             ->map(function ($items) {
@@ -101,7 +140,6 @@ class SystemConfigController extends Controller
             ->sortBy('class_name')
             ->values();
 
-        // Rekap per guru
         $teacherRecap = $journals
             ->groupBy(fn ($j) => $j->schedule->teacher_id)
             ->map(function ($items) {
@@ -140,6 +178,15 @@ class SystemConfigController extends Controller
         return view('waka.cycle-history-class', compact(
             'history', 'class', 'config', 'journals'
         ));
+    }
+
+    private function ensureCurrentPeriod($config)
+    {
+        if (!$config->end_date || Carbon::today()->gt($config->end_date)) {
+            $config->start_date = Carbon::today();
+            $config->end_date   = Carbon::today()->addDays(13);
+            $config->save();
+        }
     }
 
     private function saveCycleHistory($config)

@@ -8,30 +8,106 @@ use App\Models\SystemConfiguration;
 use App\Models\User;
 use App\Models\Classes;
 use App\Models\Room;
+use App\Models\Period;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class ScheduleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $config = SystemConfiguration::current();
 
-        $schedules = Schedule::with(['teacher', 'class', 'room'])
-            ->where('cycle_type', $config->active_cycle)
-            ->orderByRaw("FIELD(day_of_week, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu')")
-            ->orderBy('start_time')
-            ->get();
+        $cycle = $request->get('cycle', $config->active_cycle);
+        $dayFilter = $request->get('day');
+        $classFilter = $request->get('class_id');
 
-        $teachers = User::whereHas('role', function ($q) {
-            $q->where('role_name', 'Guru');
+        $query = Schedule::with(['teacher', 'class', 'room', 'period'])
+            ->where('cycle_type', $cycle);
+
+        if ($dayFilter) {
+            $query->where('day_of_week', $dayFilter);
+        }
+
+        if ($classFilter) {
+            $query->where('class_id', $classFilter);
+        }
+
+        if ($request->filled('grade') || $request->filled('major') || $request->filled('section')) {
+            $query->whereHas('class', function ($q) use ($request) {
+                if ($request->filled('grade')) {
+                    $q->where('grade', $request->grade);
+                }
+                if ($request->filled('major')) {
+                    $q->where('major', $request->major);
+                }
+                if ($request->filled('section')) {
+                    $q->where('section', $request->section);
+                }
+            });
+        }
+
+        $schedules = $query->orderBy('start_time')->get();
+
+        $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+        $times = $schedules->pluck('start_time')->unique()->sort()->values();
+
+        $matrix = [];
+        foreach ($times as $time) {
+            $matrix[$time] = [];
+            foreach ($days as $day) {
+                $matrix[$time][$day] = $schedules
+                    ->where('start_time', $time)
+                    ->where('day_of_week', $day)
+                    ->values();
+            }
+        }
+
+        $teachers = User::with('role')->whereHas('role', function ($q) {
+            $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']);
         })->orderBy('fullname')->get();
 
-        $classes = Classes::orderBy('class_name')->get();
-        $rooms   = Room::orderBy('room_name')->get();
+        $classesQuery = Classes::query();
+        if ($request->filled('grade')) {
+            $classesQuery->where('grade', $request->grade);
+        }
+        if ($request->filled('major')) {
+            $classesQuery->where('major', $request->major);
+        }
+        if ($request->filled('section')) {
+            $classesQuery->where('section', $request->section);
+        }
+        $classes = $classesQuery->orderBy('class_name')->get();
+
+        $rooms = Room::orderBy('room_name')->get();
+
+        $all = Period::orderBy('start_time')->get();
+        $learn = $all->where('is_break', false)->values();
+
+        $periodsByDay = [
+            'Senin'  => $learn->where('day_group', 'senin')->values(),
+            'Selasa' => $learn->where('day_group', 'selasa')->values(),
+            'Rabu'   => $learn->where('day_group', 'rabu_kamis')->values(),
+            'Kamis'  => $learn->where('day_group', 'rabu_kamis')->values(),
+            'Jumat'  => $learn->where('day_group', 'jumat')->values(),
+        ];
+
+        $periodsByDayJson = [];
+        foreach (['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as $day) {
+            $periodsByDayJson[$day] = $periodsByDay[$day]->map(function ($p) {
+                return [
+                    'id'    => $p->id,
+                    'label' => $p->label,
+                    'start' => substr((string) $p->start_time, 0, 5),
+                    'end'   => substr((string) $p->end_time, 0, 5),
+                ];
+            })->values()->all();
+        }
 
         return view('waka.schedules.index', compact(
-            'schedules', 'config', 'teachers', 'classes', 'rooms'
+            'schedules', 'config', 'teachers', 'classes', 'rooms',
+            'matrix', 'days', 'cycle', 'dayFilter', 'classFilter',
+            'periodsByDayJson'
         ));
     }
 
@@ -44,20 +120,35 @@ class ScheduleController extends Controller
         }
 
         $request->validate([
-            'teacher_id'  => 'required|exists:users,id',
-            'class_id'    => 'required|exists:classes,id',
-            'room_id'     => 'required|exists:rooms,id',
-            'subject'     => 'required|string|max:100',
-            'day_of_week' => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
-            'start_time'  => 'required|date_format:H:i',
-            'end_time'    => 'required|date_format:H:i|after:start_time',
+            'teacher_id'      => 'required|exists:users,id',
+            'class_id'        => 'required|exists:classes,id',
+            'room_id'         => 'required|exists:rooms,id',
+            'subject'         => 'required|string|max:100',
+            'day_of_week'     => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+            'period_start_id' => 'required|exists:periods,id',
+            'period_end_id'   => 'required|exists:periods,id',
+            'cycle_type'      => 'required|in:1,2',
         ]);
 
+        $startPeriod = Period::findOrFail($request->period_start_id);
+        $endPeriod   = Period::findOrFail($request->period_end_id);
+
+        if ($startPeriod->is_break || $endPeriod->is_break) {
+            return back()->with('error', 'Tidak bisa memilih slot istirahat.')->withInput();
+        }
+
+        if ($startPeriod->start_time > $endPeriod->start_time) {
+            return back()->with('error', 'Jam selesai harus sama atau setelah jam mulai.')->withInput();
+        }
+
+        $start = substr((string) $startPeriod->start_time, 0, 5);
+        $end   = substr((string) $endPeriod->end_time, 0, 5);
+
         $conflict = $this->checkConflict(
-            $config->active_cycle,
+            $request->cycle_type,
             $request->day_of_week,
-            $request->start_time,
-            $request->end_time,
+            $start,
+            $end,
             $request->teacher_id,
             $request->class_id,
             $request->room_id
@@ -73,12 +164,17 @@ class ScheduleController extends Controller
             'room_id'     => $request->room_id,
             'subject'     => $request->subject,
             'day_of_week' => $request->day_of_week,
-            'start_time'  => $request->start_time,
-            'end_time'    => $request->end_time,
-            'cycle_type'  => $config->active_cycle,
+            'start_time'  => $start,
+            'end_time'    => $end,
+            'period_id'   => $startPeriod->id,
+            'cycle_type'  => $request->cycle_type,
         ]);
 
-        return back()->with('success', 'Jadwal berhasil ditambahkan.');
+        $label = $startPeriod->id === $endPeriod->id
+            ? $startPeriod->label
+            : $startPeriod->label . ' – ' . $endPeriod->label;
+
+        return back()->with('success', "Jadwal berhasil ditambahkan ke Putaran {$request->cycle_type} ({$label}: {$start} – {$end}).");
     }
 
     public function update(Request $request, $id)
@@ -92,20 +188,35 @@ class ScheduleController extends Controller
         $schedule = Schedule::findOrFail($id);
 
         $request->validate([
-            'teacher_id'  => 'required|exists:users,id',
-            'class_id'    => 'required|exists:classes,id',
-            'room_id'     => 'required|exists:rooms,id',
-            'subject'     => 'required|string|max:100',
-            'day_of_week' => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
-            'start_time'  => 'required|date_format:H:i',
-            'end_time'    => 'required|date_format:H:i|after:start_time',
+            'teacher_id'      => 'required|exists:users,id',
+            'class_id'        => 'required|exists:classes,id',
+            'room_id'         => 'required|exists:rooms,id',
+            'subject'         => 'required|string|max:100',
+            'day_of_week'     => 'required|in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+            'period_start_id' => 'required|exists:periods,id',
+            'period_end_id'   => 'required|exists:periods,id',
+            'cycle_type'      => 'required|in:1,2',
         ]);
 
+        $startPeriod = Period::findOrFail($request->period_start_id);
+        $endPeriod   = Period::findOrFail($request->period_end_id);
+
+        if ($startPeriod->is_break || $endPeriod->is_break) {
+            return back()->with('error', 'Tidak bisa memilih slot istirahat.')->withInput();
+        }
+
+        if ($startPeriod->start_time > $endPeriod->start_time) {
+            return back()->with('error', 'Jam selesai harus sama atau setelah jam mulai.')->withInput();
+        }
+
+        $start = substr((string) $startPeriod->start_time, 0, 5);
+        $end   = substr((string) $endPeriod->end_time, 0, 5);
+
         $conflict = $this->checkConflict(
-            $config->active_cycle,
+            $request->cycle_type,
             $request->day_of_week,
-            $request->start_time,
-            $request->end_time,
+            $start,
+            $end,
             $request->teacher_id,
             $request->class_id,
             $request->room_id,
@@ -122,11 +233,17 @@ class ScheduleController extends Controller
             'room_id'     => $request->room_id,
             'subject'     => $request->subject,
             'day_of_week' => $request->day_of_week,
-            'start_time'  => $request->start_time,
-            'end_time'    => $request->end_time,
+            'start_time'  => $start,
+            'end_time'    => $end,
+            'period_id'   => $startPeriod->id,
+            'cycle_type'  => $request->cycle_type,
         ]);
 
-        return back()->with('success', 'Jadwal berhasil diupdate.');
+        $label = $startPeriod->id === $endPeriod->id
+            ? $startPeriod->label
+            : $startPeriod->label . ' – ' . $endPeriod->label;
+
+        return back()->with('success', "Jadwal berhasil diupdate ({$label}: {$start} – {$end}).");
     }
 
     public function destroy($id)
@@ -149,7 +266,7 @@ class ScheduleController extends Controller
         $todayDate = Carbon::today()->toDateString();
         $now = Carbon::now();
 
-        $todaySchedules = Schedule::with(['teacher', 'class', 'room', 'journals'])
+        $todaySchedules = Schedule::with(['teacher', 'class', 'room', 'period', 'journals'])
             ->where('cycle_type', $config->active_cycle)
             ->where('day_of_week', $today)
             ->orderBy('start_time')

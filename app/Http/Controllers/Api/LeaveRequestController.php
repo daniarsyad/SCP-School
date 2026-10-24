@@ -7,20 +7,32 @@ use App\Models\LeaveRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
 
 class LeaveRequestController extends Controller
 {
-    // Ajukan Izin (Siswa / Orang Tua)
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'student_id'   => 'required|exists:users,id',
-            'start_date'   => 'required|date|after_or_equal:today',
-            'end_date'     => 'required|date|after_or_equal:start_date',
-            'reason'       => 'required|string',
-            'document'     => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
-        ]);
+        $user = $request->user();
+
+        if (!$user->isSiswa() && !$user->isOrangTua()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya Siswa atau Orang Tua yang dapat mengajukan izin.'
+            ], 403);
+        }
+
+        $rules = [
+            'start_date' => 'required|date|after_or_equal:yesterday',
+            'end_date'   => 'required|date|after_or_equal:start_date',
+            'reason'     => 'required|string|max:500',
+            'document'   => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
+        ];
+
+        if ($user->isOrangTua()) {
+            $rules['student_id'] = 'required|exists:users,id';
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return response()->json([
@@ -30,28 +42,39 @@ class LeaveRequestController extends Controller
             ], 422);
         }
 
-        $user = $request->user();
+        $studentId = $user->isSiswa()
+            ? $user->id
+            : $request->student_id;
 
-        // Hanya Siswa atau Orang Tua yang boleh mengajukan
-        if (!$user->isSiswa() && !$user->isOrangTua()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hanya Siswa atau Orang Tua yang dapat mengajukan izin.'
-            ], 403);
+        if ($user->isOrangTua()) {
+            $isChild = User::where('id', $studentId)
+                ->where('parent_id', $user->id)
+                ->exists();
+
+            if (!$isChild) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Siswa bukan anak dari akun ini.'
+                ], 403);
+            }
         }
 
-        // Upload dokumen
-        $documentPath = $request->file('document')->store('leave_documents', 'public');
+       $documentPath = null;
+    if ($request->hasFile('document')) {
+    $documentPath = $request->file('document')->store('leave_documents', 'public');
+    } else {
+    $documentPath = ''; // biar tidak null
+    }
 
-        $leave = LeaveRequest::create([
-            'student_id'      => $request->student_id,
-            'applicant_id'    => $user->id,
-            'start_date'      => $request->start_date,
-            'end_date'        => $request->end_date,
-            'reason'          => $request->reason,
-            'document_path'   => $documentPath,
-            'status_approval' => 'Pending',
-        ]);
+$leave = LeaveRequest::create([
+    'student_id'      => $studentId,
+    'applicant_id'    => $user->id,
+    'start_date'      => $request->start_date,
+    'end_date'        => $request->end_date,
+    'reason'          => $request->reason,
+    'document_path'   => $documentPath,
+    'status_approval' => 'Pending',
+]);
 
         return response()->json([
             'success' => true,
@@ -60,7 +83,6 @@ class LeaveRequestController extends Controller
         ], 201);
     }
 
-    // Lihat pengajuan milik sendiri / anaknya
     public function myRequests(Request $request)
     {
         $user = $request->user();
@@ -70,7 +92,6 @@ class LeaveRequestController extends Controller
         if ($user->isSiswa()) {
             $query->where('student_id', $user->id);
         } elseif ($user->isOrangTua()) {
-            // Ambil anak-anaknya
             $childrenIds = User::where('parent_id', $user->id)->pluck('id');
             $query->whereIn('student_id', $childrenIds);
         } else {
@@ -88,7 +109,6 @@ class LeaveRequestController extends Controller
         ]);
     }
 
-    // Verifikasi Izin (Wali Kelas / Guru BK)
     public function verify(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
@@ -112,7 +132,20 @@ class LeaveRequestController extends Controller
             ], 403);
         }
 
-        $leave = LeaveRequest::findOrFail($id);
+        $leave = LeaveRequest::with('student:id,class_id')->findOrFail($id);
+
+        if (
+            $user->isWaliKelas() &&
+            (
+                !$user->class_id ||
+                (int) $leave->student?->class_id !== (int) $user->class_id
+            )
+        ) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak berhak memproses izin dari kelas ini.'
+            ], 403);
+        }
 
         if ($leave->status_approval !== 'Pending') {
             return response()->json([
@@ -133,7 +166,6 @@ class LeaveRequestController extends Controller
         ]);
     }
 
-    // List semua pending (untuk Wali Kelas / BK)
     public function pending(Request $request)
     {
         $user = $request->user();
@@ -145,10 +177,23 @@ class LeaveRequestController extends Controller
             ], 403);
         }
 
-        $data = LeaveRequest::with(['student:id,fullname,class_id', 'applicant:id,fullname'])
-            ->where('status_approval', 'Pending')
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $query = LeaveRequest::with(['student:id,fullname,class_id', 'applicant:id,fullname'])
+            ->where('status_approval', 'Pending');
+
+        if ($user->isWaliKelas()) {
+            if (!$user->class_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun Wali Kelas belum terhubung ke kelas.'
+                ], 422);
+            }
+
+            $query->whereHas('student', function ($student) use ($user) {
+                $student->where('class_id', $user->class_id);
+            });
+        }
+
+        $data = $query->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'success' => true,

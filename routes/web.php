@@ -19,49 +19,63 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
 
+// Route Lupa Password (3 Langkah)
 Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/forgot-password/request', [AuthController::class, 'requestOtp'])->name('password.otp');
+Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyOtp'])->name('password.verify-otp');
+Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword'])->name('password.reset');
+
 
 // ==================== WAKA (harus login) ====================
 Route::middleware('auth')->prefix('waka')->name('waka.')->group(function () {
-
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
+    
     // Toggle Cycle & Lock
     Route::post('/toggle-cycle', [SystemConfigController::class, 'toggleCycle'])->name('toggle.cycle');
     Route::post('/toggle-lock', [SystemConfigController::class, 'toggleLock'])->name('toggle.lock');
-
+    
     // Master Data - Kelas
     Route::get('/master/classes', [MasterDataController::class, 'classes'])->name('master.classes');
     Route::post('/master/classes', [MasterDataController::class, 'storeClass'])->name('master.classes.store');
     Route::put('/master/classes/{id}', [MasterDataController::class, 'updateClass'])->name('master.classes.update');
     Route::delete('/master/classes/{id}', [MasterDataController::class, 'deleteClass'])->name('master.classes.delete');
-
+    
     // Master Data - Ruangan
     Route::get('/master/rooms', [MasterDataController::class, 'rooms'])->name('master.rooms');
     Route::post('/master/rooms', [MasterDataController::class, 'storeRoom'])->name('master.rooms.store');
     Route::put('/master/rooms/{id}', [MasterDataController::class, 'updateRoom'])->name('master.rooms.update');
     Route::delete('/master/rooms/{id}', [MasterDataController::class, 'deleteRoom'])->name('master.rooms.delete');
-
+    
     // Master Data - User
     Route::get('/master/users', [MasterDataController::class, 'users'])->name('master.users');
     Route::post('/master/users', [MasterDataController::class, 'storeUser'])->name('master.users.store');
     Route::put('/master/users/{id}', [MasterDataController::class, 'updateUser'])->name('master.users.update');
     Route::delete('/master/users/{id}', [MasterDataController::class, 'deleteUser'])->name('master.users.delete');
-
+    Route::get('/master/users/template', [MasterDataController::class, 'downloadUserTemplate'])->name('master.users.template');
+    Route::post('/master/users/import', [MasterDataController::class, 'importUsers'])->name('master.users.import');
+    
     // Jadwal (Waka yang input)
     Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
     Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
     Route::put('/schedules/{id}', [ScheduleController::class, 'update'])->name('schedules.update');
     Route::delete('/schedules/{id}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');
-
+    
     // Rekap Jurnal
     Route::get('/journal-recap', [ScheduleController::class, 'journalRecap'])->name('journal.recap');
-
+    
     // System & History
     Route::get('/cycle-history', [SystemConfigController::class, 'history'])->name('cycle.history');
     Route::get('/cycle-history/{id}', [SystemConfigController::class, 'historyDetail'])->name('cycle.history.detail');
     Route::get('/cycle-history/{id}/kelas/{classId}', [SystemConfigController::class, 'historyByClass'])->name('cycle.history.class');
     Route::get('/system-config', [SystemConfigController::class, 'index'])->name('system.config');
+    
+    // Kenaikan Kelas
+    Route::get('/kenaikan-kelas', [MasterDataController::class, 'promotion'])->name('promotion');
+    Route::post('/kenaikan-kelas/proses', [MasterDataController::class, 'processPromotion'])->name('promotion.process');
+
+    Route::get('/master/subjects', [MasterDataController::class, 'subjects'])->name('master.subjects');
+
+    //daftar siswa kelas + rekap presensi
+    Route::get('/master/classes/{id}/students', [MasterDataController::class, 'classStudents'])->name('master.classes.students');
 });

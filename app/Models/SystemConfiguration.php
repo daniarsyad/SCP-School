@@ -26,7 +26,19 @@ class SystemConfiguration extends Model
     }
 
     public static function current()
-    {
-        return self::first();
+{
+    $config = self::first();
+
+    if (!$config) {
+        $config = self::create([
+            'active_cycle'       => '1',
+            'is_schedule_locked' => false,
+            'start_date'         => \Carbon\Carbon::today(),
+            'end_date'           => \Carbon\Carbon::today()->addDays(13),
+            'updated_by'         => auth()->id(),
+        ]);
     }
+
+    return $config;
+}
 }
