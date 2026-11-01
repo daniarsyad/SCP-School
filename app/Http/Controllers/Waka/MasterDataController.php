@@ -18,7 +18,12 @@ class MasterDataController extends Controller
     // ==================== KELAS ====================
     public function classes(Request $request)
     {
-        $query = Classes::withCount(['users', 'schedules']);
+        $query = Classes::withCount([
+            'users' => fn ($query) => $query
+                ->where('is_alumni', false)
+                ->whereHas('role', fn ($roleQuery) => $roleQuery->where('role_name', 'Siswa')),
+            'schedules',
+        ]);
 
         if ($request->filled('grade')) {
             $query->where('grade', $request->grade);
@@ -466,7 +471,7 @@ public function subjects(Request $request)
         $request->validate([
             'class_id'    => 'required|exists:classes,id',
             'student_ids' => 'nullable|array',
-            'student_ids.*' => 'exists:users,id',
+            'student_ids.*' => 'required|integer|distinct|exists:users,id',
             'graduate'    => 'nullable|boolean',
         ]);
 
@@ -475,9 +480,21 @@ public function subjects(Request $request)
         }
 
         $sourceClass = Classes::findOrFail($request->class_id);
+        $studentIds = $request->input('student_ids');
+        $students = User::where('class_id', $sourceClass->id)
+            ->whereIn('id', $studentIds)
+            ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
+            ->get();
+
+        if ($students->count() !== count($studentIds)) {
+            return back()->with('error', 'Pastikan siswa yang dipilih masih aktif dan berasal dari kelas asal.');
+        }
+
+        $studentIds = $students->modelKeys();
 
         if ($request->boolean('graduate') || $sourceClass->grade === 'XII') {
-            User::whereIn('id', $request->student_ids)->update([
+            User::whereIn('id', $studentIds)->update([
                 'class_id'  => null,
                 'is_alumni' => true,
             ]);
@@ -505,7 +522,7 @@ public function subjects(Request $request)
             return back()->with('error', "Kelas tujuan {$targetClass->class_name} masih terisi siswa.");
         }
 
-        User::whereIn('id', $request->student_ids)->update([
+        User::whereIn('id', $studentIds)->update([
             'class_id' => $targetClass->id,
         ]);
 

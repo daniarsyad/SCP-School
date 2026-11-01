@@ -1,13 +1,13 @@
 
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\SystemController;
-use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\JournalController;
 use App\Http\Controllers\Api\LeaveRequestController;
-use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\ScheduleController;
+use App\Http\Controllers\Api\SystemController;
+use Illuminate\Support\Facades\Route;
 
 // ==================== PUBLIK ====================
 
@@ -21,19 +21,19 @@ Route::get('/classes', [SystemController::class, 'classes']);
 // Meminta OTP melalui email
 Route::post('/forgot-password/request', [
     AuthController::class,
-    'requestOtp'
+    'requestOtp',
 ]);
 
 // Verifikasi OTP
 Route::post('/forgot-password/verify-otp', [
     AuthController::class,
-    'verifyOtp'
+    'verifyOtp',
 ]);
 
 // Reset password menggunakan OTP
 Route::post('/forgot-password/reset', [
     AuthController::class,
-    'resetPassword'
+    'resetPassword',
 ]);
 
 // ==================== HARUS LOGIN ====================
@@ -61,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/journals', [JournalController::class, 'store']);
     Route::get('/journals/my', [JournalController::class, 'myJournals']);
+    Route::get('/journals/monitor', [JournalController::class, 'monitor']);
 
     // ==================== LEAVE REQUEST ====================
 
@@ -70,34 +71,42 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/leave-requests/{id}/verify', [
         LeaveRequestController::class,
-        'verify'
+        'verify',
+    ]);
+    Route::post('/leave-requests/{id}/cancel', [
+        LeaveRequestController::class,
+        'cancel',
     ]);
 
     // ==================== ATTENDANCE ====================
 
     Route::get('/attendances/journal/{journalId}', [
         AttendanceController::class,
-        'byJournal'
+        'byJournal',
     ]);
 
     Route::get('/attendances/report', [
         AttendanceController::class,
-        'report'
+        'report',
+    ]);
+    Route::get('/attendances/report/export', [
+        AttendanceController::class,
+        'exportReport',
     ]);
 
     Route::put('/attendances/{id}', [
         AttendanceController::class,
-        'updateStatus'
+        'updateStatus',
     ]);
 
     Route::post('/attendances/{id}/status', [
         AttendanceController::class,
-        'updateStatus'
+        'updateStatus',
     ]);
 
     Route::get('/attendances/my', [
         AttendanceController::class,
-        'myAttendances'
+        'myAttendances',
     ]);
 
 });

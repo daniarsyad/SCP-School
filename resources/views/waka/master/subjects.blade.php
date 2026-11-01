@@ -69,8 +69,15 @@
                         </td>
                         <td class="px-6 py-4">{{ $item['total_sessions'] }} Sesi</td>
                         <td class="px-6 py-4 text-right">
+                            <div class="flex justify-end">
                             <button type="button" onclick="openDetail({{ $index }})"
-                                    class="text-blue-600 hover:underline text-sm">Lihat</button>
+                                    title="Lihat detail mata pelajaran" aria-label="Lihat detail mata pelajaran"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-blue-200 bg-blue-50 text-blue-700 transition-colors hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm6 0c0 4.5-4.03 8-9 8s-9-3.5-9-8 4.03-8 9-8 9 3.5 9 8z"/>
+                                </svg>
+                            </button>
+                            </div>
                         </td>
                     </tr>
                 @empty

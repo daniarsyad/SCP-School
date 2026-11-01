@@ -236,16 +236,28 @@
                             </td>
                             <td class="px-6 py-3">{{ $user->class->class_name ?? '-' }}</td>
                             <td class="px-6 py-3 text-right">
+                                <div class="flex justify-end gap-2">
                                 @if($user->id !== auth()->id())
                                     <form action="{{ route('waka.master.users.delete', $user->id) }}" method="POST" class="inline"
                                           onsubmit="return confirm('Yakin hapus user ini?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="text-red-500 hover:text-red-700 text-sm">Hapus</button>
+                                        <button type="submit" title="Hapus pengguna" aria-label="Hapus pengguna"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 bg-red-50 text-red-700 transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                            </svg>
+                                        </button>
                                     </form>
                                 @else
-                                    <span class="text-gray-400 text-sm">-</span>
+                                    <span title="Akun Anda tidak dapat dihapus" aria-label="Akun Anda tidak dapat dihapus"
+                                          class="inline-flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-gray-400">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-12.728 12.728m0-12.728l12.728 12.728"/>
+                                        </svg>
+                                    </span>
                                 @endif
+                                </div>
                             </td>
                         </tr>
                     @empty

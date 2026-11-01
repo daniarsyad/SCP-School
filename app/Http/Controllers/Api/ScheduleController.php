@@ -200,7 +200,7 @@ class ScheduleController extends Controller
             'message' => 'Jadwal berhasil ditambahkan',
             'data'    => $this->serializeSchedules(collect([
                 $schedule->load(['teacher:id,fullname', 'class:id,class_name', 'room:id,room_name', 'period']),
-            ]))->first(),
+            ]))[0],
         ], 201);
     }
 

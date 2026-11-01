@@ -13,13 +13,18 @@ class LeaveRequest extends Model
         'start_date',
         'end_date',
         'reason',
+        'leave_type',
         'document_path',
         'status_approval',
+        'rejection_reason',
+        'cancelled_at',
+        'cancelled_by',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'cancelled_at' => 'datetime',
     ];
 
     public function student()
@@ -35,5 +40,10 @@ class LeaveRequest extends Model
     public function verifiedBy()
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function cancelledBy()
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 }

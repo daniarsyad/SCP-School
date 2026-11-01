@@ -170,6 +170,26 @@ class ScheduleCycleApiTest extends TestCase
             ->assertJsonPath('data.0.cycle', 2);
     }
 
+    public function test_waka_can_create_a_schedule_and_response_includes_its_cycle(): void
+    {
+        $waka = User::where('role_id', $this->roles['Waka Kurikulum']->id)->firstOrFail();
+        $this->config->update(['active_cycle' => '2']);
+
+        $this->actingAs($waka, 'sanctum')
+            ->postJson('/api/schedules', [
+                'teacher_id' => $this->teacher->id,
+                'class_id' => $this->class->id,
+                'room_id' => $this->room->id,
+                'subject' => 'Bahasa Indonesia',
+                'day_of_week' => 'Senin',
+                'start_time' => '08:00',
+                'end_time' => '09:00',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.cycle', 2)
+            ->assertJsonPath('data.cycle_type', '2');
+    }
+
     private function makeUser(
         string $fullname,
         string $username,

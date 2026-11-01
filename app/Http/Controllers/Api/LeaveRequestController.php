@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Services\AttendanceLeaveSynchronizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class LeaveRequestController extends Controller
@@ -25,6 +28,7 @@ class LeaveRequestController extends Controller
             'start_date' => 'required|date|after_or_equal:yesterday',
             'end_date'   => 'required|date|after_or_equal:start_date',
             'reason'     => 'required|string|max:500',
+            'leave_type' => 'sometimes|in:Izin,Sakit',
             'document'   => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:2048',
         ];
 
@@ -72,6 +76,7 @@ $leave = LeaveRequest::create([
     'start_date'      => $request->start_date,
     'end_date'        => $request->end_date,
     'reason'          => $request->reason,
+    'leave_type'      => $request->input('leave_type', 'Izin'),
     'document_path'   => $documentPath,
     'status_approval' => 'Pending',
 ]);
@@ -111,8 +116,17 @@ $leave = LeaveRequest::create([
 
     public function verify(Request $request, $id)
     {
+        $user = $request->user();
+        if (!$user->isWaliKelas()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya Wali Kelas yang dapat memverifikasi pengajuan.',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'status_approval' => 'required|in:Approved,Rejected',
+            'rejection_reason' => 'required_if:status_approval,Rejected|nullable|string|min:3|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -121,15 +135,6 @@ $leave = LeaveRequest::create([
                 'message' => 'Validasi gagal',
                 'errors'  => $validator->errors()
             ], 422);
-        }
-
-        $user = $request->user();
-
-        if (!$user->isWaliKelas() && !$user->isGuruBK()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hanya Wali Kelas atau Guru BK yang dapat memverifikasi.'
-            ], 403);
         }
 
         $leave = LeaveRequest::with('student:id,class_id')->findOrFail($id);
@@ -147,17 +152,40 @@ $leave = LeaveRequest::create([
             ], 403);
         }
 
-        if ($leave->status_approval !== 'Pending') {
+        if ($leave->status_approval !== 'Pending' || $leave->cancelled_at !== null) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pengajuan ini sudah diproses sebelumnya.'
             ], 409);
         }
 
-        $leave->update([
-            'status_approval' => $request->status_approval,
-            'verified_by'     => $user->id,
-        ]);
+        $leave = DB::transaction(function () use ($id, $request, $user, $leave) {
+            $lockedLeave = LeaveRequest::whereKey($id)->lockForUpdate()->firstOrFail();
+            if ($lockedLeave->status_approval !== 'Pending' || $lockedLeave->cancelled_at !== null) {
+                return null;
+            }
+
+            $lockedLeave->update([
+                'status_approval' => $request->status_approval,
+                'verified_by' => $user->id,
+                'rejection_reason' => $request->status_approval === 'Rejected'
+                    ? $request->rejection_reason
+                    : null,
+            ]);
+
+            if ($request->status_approval === 'Approved') {
+                $this->recalculateLeaveDates($lockedLeave, app(AttendanceLeaveSynchronizer::class));
+            }
+
+            return $lockedLeave->fresh();
+        });
+
+        if (!$leave) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pengajuan ini sudah diproses sebelumnya.',
+            ], 409);
+        }
 
         return response()->json([
             'success' => true,
@@ -178,7 +206,8 @@ $leave = LeaveRequest::create([
         }
 
         $query = LeaveRequest::with(['student:id,fullname,class_id', 'applicant:id,fullname'])
-            ->where('status_approval', 'Pending');
+            ->where('status_approval', 'Pending')
+            ->whereNull('cancelled_at');
 
         if ($user->isWaliKelas()) {
             if (!$user->class_id) {
@@ -199,5 +228,69 @@ $leave = LeaveRequest::create([
             'success' => true,
             'data' => $data
         ]);
+    }
+
+    public function cancel(Request $request, $id)
+    {
+        $user = $request->user();
+        $leave = LeaveRequest::findOrFail($id);
+
+        if ((int) $leave->applicant_id !== (int) $user->id &&
+            (int) $leave->student_id !== (int) $user->id) {
+            return response()->json(['success' => false, 'message' => 'Anda tidak berhak membatalkan pengajuan ini.'], 403);
+        }
+
+        if ($leave->cancelled_at !== null ||
+            !in_array($leave->status_approval, ['Pending', 'Approved'], true)) {
+            return response()->json(['success' => false, 'message' => 'Pengajuan ini tidak dapat dibatalkan.'], 409);
+        }
+
+        $cancelled = DB::transaction(function () use ($id, $user) {
+            $lockedLeave = LeaveRequest::whereKey($id)->lockForUpdate()->firstOrFail();
+            if ($lockedLeave->cancelled_at !== null ||
+                !in_array($lockedLeave->status_approval, ['Pending', 'Approved'], true)) {
+                return null;
+            }
+
+            $wasApproved = $lockedLeave->status_approval === 'Approved';
+            $lockedLeave->update([
+                'cancelled_at' => now(),
+                'cancelled_by' => $user->id,
+            ]);
+
+            if ($wasApproved) {
+                $this->recalculateLeaveDates($lockedLeave, app(AttendanceLeaveSynchronizer::class));
+            }
+
+            return $lockedLeave->fresh();
+        });
+
+        if (!$cancelled) {
+            return response()->json(['success' => false, 'message' => 'Pengajuan ini tidak dapat dibatalkan.'], 409);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pengajuan berhasil dibatalkan.',
+            'data' => $cancelled,
+        ]);
+    }
+
+    private function recalculateLeaveDates(
+        LeaveRequest $leave,
+        AttendanceLeaveSynchronizer $synchronizer
+    ): void {
+        $attendances = Attendance::where('student_id', $leave->student_id)
+            ->whereDate('date', '>=', $leave->start_date->toDateString())
+            ->whereDate('date', '<=', $leave->end_date->toDateString())
+            ->orderBy('date')
+            ->get();
+
+        foreach ($attendances as $attendance) {
+            $synchronizer->recalculateForStudentDate(
+                (int) $leave->student_id,
+                $attendance->date->toDateString()
+            );
+        }
     }
 }

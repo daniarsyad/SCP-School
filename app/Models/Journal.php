@@ -6,14 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class Journal extends Model
 {
-    public $timestamps = false; // karena hanya ada created_at
+    public $timestamps = false;
+
+    protected $hidden = [
+        'idempotency_key',
+        'idempotency_hash',
+    ];
 
     protected $fillable = [
         'schedule_id',
         'date',
         'topic_description',
+        'activity_notes',
         'photo_path',
         'created_at',
+        'idempotency_key',
+        'idempotency_hash',
     ];
 
     protected $casts = [
