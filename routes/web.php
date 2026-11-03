@@ -57,6 +57,8 @@ Route::middleware('auth')->prefix('waka')->name('waka.')->group(function () {
     
     // Jadwal (Waka yang input)
     Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');
+    Route::get('/schedules/import/template', [ScheduleController::class, 'downloadImportTemplate'])->name('schedules.import.template');
+    Route::post('/schedules/import', [ScheduleController::class, 'import'])->name('schedules.import');
     Route::post('/schedules', [ScheduleController::class, 'store'])->name('schedules.store');
     Route::put('/schedules/{id}', [ScheduleController::class, 'update'])->name('schedules.update');
     Route::delete('/schedules/{id}', [ScheduleController::class, 'destroy'])->name('schedules.destroy');

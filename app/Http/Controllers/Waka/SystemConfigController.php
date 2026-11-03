@@ -92,6 +92,12 @@ class SystemConfigController extends Controller
                     return [
                         'class_id'   => $class->id ?? 0,
                         'class_name' => $class->class_name ?? '-',
+                        'dates'      => $items->pluck('date')
+                            ->map(fn ($date) => $date->format('Y-m-d'))
+                            ->unique()
+                            ->sort()
+                            ->values()
+                            ->map(fn ($date) => Carbon::parse($date)->format('d M Y')),
                         'journals'   => $items->count(),
                         'hadir'      => $att->where('status', 'Hadir')->count(),
                         'izin'       => $att->where('status', 'Izin')->count(),

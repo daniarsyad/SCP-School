@@ -162,6 +162,7 @@ class AttendanceController extends Controller
             'journal:id,schedule_id,date',
             'journal.schedule:id,subject,class_id,teacher_id,period_id',
             'journal.schedule.class:id,class_name',
+            'journal.schedule.class.homeroomTeacher:id,fullname,class_id',
             'journal.schedule.teacher:id,fullname',
             'journal.schedule.period:id,period_number,label',
         ])
@@ -179,6 +180,9 @@ class AttendanceController extends Controller
         }
 
         $data = $query->orderBy('date')->orderBy('id')->get();
+        $data->each(function (Attendance $attendance) {
+            $attendance->journal->schedule->class->homeroomTeacher?->makeHidden('class_id');
+        });
         $statusSummary = $data->countBy('status');
         $reportClassId = $user->isWaliKelas()
             ? (int) $user->class_id

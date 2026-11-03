@@ -12,12 +12,21 @@
         </div>
 
         @if(!$config->is_schedule_locked)
-            <button
-                onclick="document.getElementById('addForm').classList.toggle('hidden')"
-                class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium px-4 py-2 rounded-lg text-sm"
-            >
-                + Tambah Jadwal
-            </button>
+            <div class="flex flex-wrap gap-2">
+                <button
+                    onclick="document.getElementById('addForm').classList.toggle('hidden')"
+                    class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium px-4 py-2 rounded-lg text-sm"
+                >
+                    + Tambah Jadwal
+                </button>
+                <button
+                    type="button"
+                    onclick="document.getElementById('importForm').classList.toggle('hidden')"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm"
+                >
+                    Import Jadwal Massal
+                </button>
+            </div>
         @endif
     </div>
 
@@ -90,6 +99,40 @@
             </div>
         </div>
     </form>
+
+    @if(!$config->is_schedule_locked)
+        <div id="importForm" class="hidden bg-white rounded-xl border p-6 mb-6">
+            <div class="mb-4">
+                <div>
+                    <h2 class="font-semibold">Import Jadwal Massal</h2>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Unggah file Excel/CSV. Guru harus sudah terdaftar sebagai Guru, Wali Kelas, atau Guru BK.
+                        Mata pelajaran harus sesuai dengan mata pelajaran pada data pengajar.
+                    </p>
+                </div>
+            </div>
+            <form action="{{ route('waka.schedules.import') }}" method="POST" enctype="multipart/form-data"
+                  class="flex flex-col sm:flex-row sm:items-end gap-3">
+                @csrf
+                <a href="{{ route('waka.schedules.import.template') }}"
+                   class="whitespace-nowrap rounded-lg border border-blue-600 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                    Unduh Template
+                </a>
+                <div class="flex-1">
+                    <label for="scheduleImportFile" class="block text-sm mb-1">File jadwal (.xlsx, .xls, .csv)</label>
+                    <input id="scheduleImportFile" type="file" name="file" required accept=".xlsx,.xls,.csv"
+                           class="w-full border rounded-lg px-3 py-2 text-sm">
+                </div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm">
+                    Import Jadwal
+                </button>
+            </form>
+            <p class="text-xs text-gray-500 mt-3">
+                Isi nama lengkap/username pengajar, nama kelas dan ruangan yang terdaftar, putaran, hari, serta jam sesuai template.
+                Jika ada data tidak valid atau jadwal bentrok, seluruh import dibatalkan dan baris serta kolom yang bermasalah akan diberitahukan.
+            </p>
+        </div>
+    @endif
 
     <!-- Form Tambah -->
     @if(!$config->is_schedule_locked)

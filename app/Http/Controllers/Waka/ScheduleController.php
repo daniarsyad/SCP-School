@@ -10,7 +10,12 @@ use App\Models\Classes;
 use App\Models\Room;
 use App\Models\Period;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ScheduleController extends Controller
 {
@@ -111,6 +116,302 @@ class ScheduleController extends Controller
         ));
     }
 
+    public function downloadImportTemplate()
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Jadwal');
+
+        $headers = [
+            'Putaran',
+            'Pengajar',
+            'Kelas',
+            'Ruangan',
+            'Mata Pelajaran',
+            'Hari',
+            'Jam Mulai (Jam ke-x)',
+            'Jam Selesai (Jam ke-x)',
+        ];
+
+        foreach ($headers as $index => $header) {
+            $sheet->setCellValue([$index + 1, 1], $header);
+            $sheet->getColumnDimensionByColumn($index + 1)->setAutoSize(true);
+        }
+        $sheet->getStyle('A1:H1')->getFont()->setBold(true);
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter('A1:H1');
+
+        $instructions = $spreadsheet->createSheet();
+        $instructions->setTitle('Petunjuk');
+        $instructions->fromArray([
+            ['Petunjuk Import Jadwal'],
+            ['Isi satu jadwal pada setiap baris di sheet Jadwal.'],
+            ['Pengajar wajib sudah terdaftar di menu Pengguna dan memiliki role Guru, Wali Kelas, atau Guru BK.'],
+            ['Isi Pengajar dengan nama lengkap atau username; mata pelajaran harus sama dengan mata pelajaran yang terdaftar untuk pengajar tersebut.'],
+            ['Nama kelas dan ruangan harus sesuai dengan data yang terdaftar.'],
+            ['Putaran diisi 1 atau 2; hari diisi Senin, Selasa, Rabu, Kamis, atau Jumat.'],
+            ['Jam mulai dan selesai diisi urutan jam pelajaran / Jam ke- (contoh: 2 atau Jam ke-2).'],
+            ['Import dibatalkan seluruhnya jika ditemukan baris tidak valid atau jadwal bentrok.'],
+        ], null, 'A1');
+        $instructions->getColumnDimension('A')->setAutoSize(true);
+
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'schedule-template-');
+        if ($temporaryPath === false) {
+            throw new \RuntimeException('Tidak dapat menyiapkan file template jadwal.');
+        }
+
+        $path = $temporaryPath . '.xlsx';
+        try {
+            if (!rename($temporaryPath, $path)) {
+                throw new \RuntimeException('Tidak dapat menyiapkan file template jadwal.');
+            }
+            (new Xlsx($spreadsheet))->save($path);
+        } catch (\Throwable $exception) {
+            @unlink($temporaryPath);
+            @unlink($path);
+            throw $exception;
+        }
+
+        if (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        return response()->download(
+            $path,
+            'template_import_jadwal.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
+    public function import(Request $request)
+    {
+        $config = SystemConfiguration::current();
+        if ($config->is_schedule_locked) {
+            return back()->with('error', 'Jadwal sedang terkunci. Tidak bisa mengimpor jadwal.');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ], [
+            'file.required' => 'Kolom File jadwal: wajib diunggah.',
+            'file.file' => 'Kolom File jadwal: file yang diunggah tidak valid.',
+            'file.mimes' => 'Kolom File jadwal: gunakan format .xlsx, .xls, atau .csv.',
+            'file.max' => 'Kolom File jadwal: ukuran file maksimal 5 MB.',
+        ]);
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        try {
+            $sheet = IOFactory::load($request->file('file')->getPathname())->getActiveSheet();
+        } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $exception) {
+            return back()->with('error', 'File jadwal tidak dapat dibaca. Pastikan format file sesuai template.');
+        }
+
+        $rows = $sheet->toArray(null, true, true, false);
+        if (count($rows) < 2) {
+            return back()->with('error', 'File import belum berisi data jadwal.');
+        }
+
+        $expectedHeaders = [
+            ['Putaran', ['putaran']],
+            ['Pengajar', ['pengajar', 'pengajar (nama lengkap/username)']],
+            ['Kelas', ['kelas']],
+            ['Ruangan', ['ruangan']],
+            ['Mata Pelajaran', ['mata pelajaran']],
+            ['Hari', ['hari']],
+            ['Jam Mulai', ['jam mulai', 'jam mulai (jam ke-x)', 'jam mulai (hh:mm)']],
+            ['Jam Selesai', ['jam selesai', 'jam selesai (jam ke-x)', 'jam selesai (hh:mm)']],
+        ];
+        foreach ($expectedHeaders as $index => [$columnName, $allowedHeaders]) {
+            $header = mb_strtolower(trim((string) ($rows[0][$index] ?? '')));
+            if (!in_array($header, $allowedHeaders, true)) {
+                return back()->with(
+                    'error',
+                    "Import dibatalkan. Kolom {$columnName}: judul kolom tidak sesuai. " .
+                    'Unduh dan gunakan template jadwal terbaru.'
+                );
+            }
+        }
+
+        $teacherUsers = User::with('role')
+            ->whereHas('role', fn ($query) => $query->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+            ->get();
+        $classes = Classes::all();
+        $rooms = Room::all();
+        $dayGroups = [
+            'Senin' => 'senin',
+            'Selasa' => 'selasa',
+            'Rabu' => 'rabu_kamis',
+            'Kamis' => 'rabu_kamis',
+            'Jumat' => 'jumat',
+        ];
+        $periods = Period::where('is_break', false)->get();
+        $prepared = [];
+        $errors = [];
+        $dataRowCount = 0;
+
+        foreach (array_slice($rows, 1, null, true) as $index => $row) {
+            $values = array_map(fn ($value) => trim((string) $value), $row);
+            if (count(array_filter($values, fn ($value) => $value !== '')) === 0) {
+                continue;
+            }
+
+            $rowNumber = $index + 1;
+            $dataRowCount++;
+            if ($dataRowCount > 500) {
+                $errors[] = 'Jumlah data melebihi batas 500 jadwal per import.';
+                break;
+            }
+
+            [$cycle, $teacherName, $className, $roomName, $subject, $day, $startTime, $endTime] =
+                array_pad($values, 8, '');
+            $rowErrors = [];
+
+            if (!in_array($cycle, ['1', '2'], true)) {
+                $rowErrors[] = 'Kolom Putaran: harus diisi 1 atau 2.';
+            }
+
+            $teacherMatches = $teacherUsers->filter(fn ($teacher) =>
+                strcasecmp($teacher->fullname, $teacherName) === 0
+                || strcasecmp($teacher->username, $teacherName) === 0
+            );
+            $teacher = $teacherMatches->count() === 1 ? $teacherMatches->first() : null;
+            if ($teacherName === '' || !$teacher) {
+                $rowErrors[] = $teacherName === ''
+                    ? 'Kolom Pengajar: wajib diisi.'
+                    : ($teacherMatches->isEmpty()
+                        ? "Kolom Pengajar: \"{$teacherName}\" tidak ada dalam daftar pengguna."
+                        : "Kolom Pengajar: \"{$teacherName}\" tidak unik; gunakan username.");
+            }
+
+            $class = $classes->first(fn ($item) => strcasecmp($item->class_name, $className) === 0);
+            if ($className === '' || !$class) {
+                $rowErrors[] = $className === ''
+                    ? 'Kolom Kelas: wajib diisi.'
+                    : "Kolom Kelas: \"{$className}\" tidak ditemukan.";
+            }
+
+            $room = $rooms->first(fn ($item) => strcasecmp($item->room_name, $roomName) === 0);
+            if ($roomName === '' || !$room) {
+                $rowErrors[] = $roomName === ''
+                    ? 'Kolom Ruangan: wajib diisi.'
+                    : "Kolom Ruangan: \"{$roomName}\" tidak ditemukan.";
+            }
+
+            if ($subject === '' || mb_strlen($subject) > 100) {
+                $rowErrors[] = $subject === ''
+                    ? 'Kolom Mata Pelajaran: wajib diisi.'
+                    : 'Kolom Mata Pelajaran: maksimal 100 karakter.';
+            } elseif ($teacher) {
+                $teacherSubjectError = $this->teacherSubjectError($teacher, $subject);
+                if ($teacherSubjectError) {
+                    $rowErrors[] = $teacherSubjectError;
+                }
+            }
+            if (!array_key_exists($day, $dayGroups)) {
+                $rowErrors[] = 'Kolom Hari: harus Senin sampai Jumat.';
+            }
+
+            $dayPeriods = isset($dayGroups[$day])
+                ? $periods->where('day_group', $dayGroups[$day])
+                : collect();
+
+            $startPeriod = $startTime !== '' ? $this->findPeriodFromInput($startTime, $dayPeriods) : null;
+            $endPeriod   = $endTime !== '' ? $this->findPeriodFromInput($endTime, $dayPeriods) : null;
+
+            if ($startTime === '') {
+                $rowErrors[] = 'Kolom Jam Mulai: wajib diisi.';
+            } elseif (!$startPeriod) {
+                $rowErrors[] = "Kolom Jam Mulai: \"{$startTime}\" bukan jam pelajaran / jam ke- yang valid untuk {$day}.";
+            }
+
+            if ($endTime === '') {
+                $rowErrors[] = 'Kolom Jam Selesai: wajib diisi.';
+            } elseif (!$endPeriod) {
+                $rowErrors[] = "Kolom Jam Selesai: \"{$endTime}\" bukan jam pelajaran / jam ke- yang valid untuk {$day}.";
+            }
+
+            if ($startPeriod && $endPeriod && $endPeriod->start_time < $startPeriod->start_time) {
+                $rowErrors[] = 'Kolom Jam Selesai: harus berada sama atau setelah jam mulai.';
+            }
+
+            if ($rowErrors) {
+                foreach ($rowErrors as $message) {
+                    $errors[] = "Baris {$rowNumber}: {$message}";
+                }
+                continue;
+            }
+
+            $scheduleData = [
+                'teacher_id' => $teacher->id,
+                'class_id'   => $class->id,
+                'room_id'    => $room->id,
+                'subject'    => $subject,
+                'day_of_week'=> $day,
+                'start_time' => substr((string) $startPeriod->start_time, 0, 5),
+                'end_time'   => substr((string) $endPeriod->end_time, 0, 5),
+                'period_id'  => $startPeriod->id,
+                'cycle_type' => $cycle,
+                'row_number' => $rowNumber,
+            ];
+
+            $conflict = $this->checkConflict(
+                $cycle,
+                $day,
+                $scheduleData['start_time'],
+                $scheduleData['end_time'],
+                $teacher->id,
+                $class->id,
+                $room->id
+            );
+            if ($conflict) {
+                $errors[] = "Baris {$rowNumber} (Putaran {$cycle}): {$conflict}";
+                continue;
+            }
+
+            foreach ($prepared as $previous) {
+                $overlaps = $previous['cycle_type'] === $cycle
+                    && $previous['day_of_week'] === $day
+                    && $previous['start_time'] < $scheduleData['end_time']
+                    && $previous['end_time'] > $scheduleData['start_time'];
+                $sameResource = $previous['teacher_id'] === $teacher->id
+                    || $previous['class_id'] === $class->id
+                    || $previous['room_id'] === $room->id;
+
+                if ($overlaps && $sameResource) {
+                    $errors[] = "Baris {$rowNumber} (Putaran {$cycle}): bentrok dengan jadwal pada baris {$previous['row_number']} (Putaran {$previous['cycle_type']}) di file import.";
+                    break;
+                }
+            }
+
+            $prepared[] = $scheduleData;
+        }
+
+        if ($dataRowCount === 0) {
+            return back()->with('error', 'File import belum berisi data jadwal.');
+        }
+        if ($errors) {
+            $visibleErrors = array_slice($errors, 0, 10);
+            $remaining = count($errors) - count($visibleErrors);
+            $message = implode(' ', $visibleErrors);
+            if ($remaining > 0) {
+                $message .= " Dan {$remaining} kesalahan lainnya.";
+            }
+
+            return back()->with('error', "Import dibatalkan. {$message}");
+        }
+
+        DB::transaction(function () use ($prepared) {
+            foreach ($prepared as $scheduleData) {
+                unset($scheduleData['row_number']);
+                Schedule::create($scheduleData);
+            }
+        });
+
+        return back()->with('success', count($prepared) . ' jadwal berhasil diimpor.');
+    }
+
     public function store(Request $request)
     {
         $config = SystemConfiguration::current();
@@ -129,6 +430,14 @@ class ScheduleController extends Controller
             'period_end_id'   => 'required|exists:periods,id',
             'cycle_type'      => 'required|in:1,2',
         ]);
+
+        $teacherSubjectError = $this->teacherSubjectError(
+            User::findOrFail($request->teacher_id),
+            $request->subject
+        );
+        if ($teacherSubjectError) {
+            return back()->with('error', $teacherSubjectError)->withInput();
+        }
 
         $startPeriod = Period::findOrFail($request->period_start_id);
         $endPeriod   = Period::findOrFail($request->period_end_id);
@@ -198,6 +507,14 @@ class ScheduleController extends Controller
             'cycle_type'      => 'required|in:1,2',
         ]);
 
+        $teacherSubjectError = $this->teacherSubjectError(
+            User::findOrFail($request->teacher_id),
+            $request->subject
+        );
+        if ($teacherSubjectError) {
+            return back()->with('error', $teacherSubjectError)->withInput();
+        }
+
         $startPeriod = Period::findOrFail($request->period_start_id);
         $endPeriod   = Period::findOrFail($request->period_end_id);
 
@@ -266,23 +583,21 @@ class ScheduleController extends Controller
         $todayDate = Carbon::today()->toDateString();
         $now = Carbon::now();
 
-        $todaySchedules = Schedule::with(['teacher', 'class', 'room', 'period', 'journals'])
+        $todaySchedules = Schedule::with([
+            'teacher',
+            'class',
+            'room',
+            'period',
+            'journals' => fn($query) => $query->whereDate('date', $todayDate),
+        ])
             ->where('cycle_type', $config->active_cycle)
             ->where('day_of_week', $today)
             ->orderBy('start_time')
             ->get();
 
-        $sudahIsi = $todaySchedules->filter(function ($s) use ($todayDate) {
-            return $s->journals->contains(function ($j) use ($todayDate) {
-                return Carbon::parse($j->date)->toDateString() === $todayDate;
-            });
-        });
+        $sudahIsi = $todaySchedules->filter(fn($s) => $s->journals->isNotEmpty());
 
-        $belumIsi = $todaySchedules->filter(function ($s) use ($todayDate) {
-            return !$s->journals->contains(function ($j) use ($todayDate) {
-                return Carbon::parse($j->date)->toDateString() === $todayDate;
-            });
-        });
+        $belumIsi = $todaySchedules->filter(fn($s) => $s->journals->isEmpty());
 
         $terlambat = $belumIsi->filter(function ($s) use ($now) {
             $endTime = Carbon::parse($s->end_time);
@@ -297,6 +612,40 @@ class ScheduleController extends Controller
             'belumIsi',
             'terlambat'
         ));
+    }
+
+    private function findPeriodFromInput(string $value, $dayPeriods)
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        // 1. Ekstrak angka dari input (contoh input Excel: "2", "6", "Jam ke-2", "Jam ke 2", "Jam 2")
+        if (preg_match('/(?:jam\s*(?:ke-?)?\s*)?(\d+)/i', $value, $matches)) {
+            $periodNum = (int) $matches[1];
+            $period = $dayPeriods->first(fn ($p) => (int) $p->period_number === $periodNum);
+            if ($period) {
+                return $period;
+            }
+        }
+
+        // 2. Pencocokan berdasarkan label (contoh: "Jam ke-2")
+        $period = $dayPeriods->first(fn ($p) => strcasecmp(trim((string) $p->label), $value) === 0);
+        if ($period) {
+            return $period;
+        }
+
+        // 3. Fallback: pencocokan berdasarkan format HH:MM (contoh jika diisi "08:35")
+        $timeStr = $this->normalizeImportTime($value);
+        if ($timeStr) {
+            return $dayPeriods->first(fn ($p) =>
+                substr((string) $p->start_time, 0, 5) === $timeStr ||
+                substr((string) $p->end_time, 0, 5) === $timeStr
+            );
+        }
+
+        return null;
     }
 
     private function checkConflict($cycle, $day, $start, $end, $teacherId, $classId, $roomId, $excludeId = null)
@@ -334,8 +683,39 @@ class ScheduleController extends Controller
             $reasons[] = 'Ruangan (' . ($conflict->room->room_name ?? '-') . ')';
         }
 
-        return 'Bentrok dengan jadwal: ' . implode(', ', $reasons) .
+        return 'bentrok dengan jadwal Putaran ' . $conflict->cycle_type .
+            ' (' . $conflict->subject . '): ' . implode(', ', $reasons) .
             ' pada ' . $conflict->day_of_week .
             ' ' . substr($conflict->start_time, 0, 5) . '-' . substr($conflict->end_time, 0, 5);
+    }
+
+    private function normalizeImportTime(string $value): ?string
+    {
+        if (preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $value)) {
+            return $value;
+        }
+
+        if (is_numeric($value) && (float) $value >= 0 && (float) $value < 1) {
+            $seconds = (int) round((float) $value * 86400);
+            return gmdate('H:i', $seconds);
+        }
+
+        return null;
+    }
+
+    private function teacherSubjectError(User $teacher, string $subject): ?string
+    {
+        $teacherSubject = trim((string) $teacher->subject);
+        $subject = trim($subject);
+
+        if ($teacherSubject === '') {
+            return "Kolom Pengajar / Mata Pelajaran: {$teacher->fullname} belum memiliki mata pelajaran pada data pengguna.";
+        }
+
+        if (strcasecmp($teacherSubject, $subject) !== 0) {
+            return "Kolom Pengajar / Mata Pelajaran: {$teacher->fullname} mengajar \"{$teacherSubject}\", bukan \"{$subject}\".";
+        }
+
+        return null;
     }
 }

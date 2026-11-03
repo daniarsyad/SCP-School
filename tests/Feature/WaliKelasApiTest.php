@@ -15,12 +15,60 @@ class WaliKelasApiTest extends TestCase
 
     public function test_classes_endpoint_returns_classes_for_mobile_dropdown(): void
     {
-        Classes::create(['class_name' => 'X RPL 1']);
+        $class = Classes::create(['class_name' => 'X RPL 1']);
+        $emptyClass = Classes::create(['class_name' => 'X RPL 2']);
+        $waliRole = Role::create(['role_name' => 'Wali Kelas']);
+        $studentRole = Role::create(['role_name' => 'Siswa']);
+        $wali = User::create([
+            'fullname' => 'Nama Wali Kelas',
+            'username' => 'wali.kelas',
+            'email' => 'wali.kelas@example.com',
+            'password' => Hash::make('password123'),
+            'role_id' => $waliRole->id,
+            'class_id' => $class->id,
+        ]);
+        $student = User::create([
+            'fullname' => 'Nama Siswa',
+            'username' => 'siswa.roster',
+            'email' => 'siswa.roster@example.com',
+            'password' => Hash::make('password123'),
+            'role_id' => $studentRole->id,
+            'class_id' => $class->id,
+        ]);
 
         $this->getJson('/api/classes')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.0.class_name', 'X RPL 1');
+            ->assertJsonPath('data.0.class_name', 'X RPL 1')
+            ->assertJsonPath('data.0.homeroom_teacher', [
+                'id' => $wali->id,
+                'fullname' => 'Nama Wali Kelas',
+            ])
+            ->assertJsonPath('data.0.students.0.id', $student->id)
+            ->assertJsonPath('data.0.students.0.fullname', 'Nama Siswa')
+            ->assertJsonPath('data.1.class_name', 'X RPL 2')
+            ->assertJsonPath('data.1.id', $emptyClass->id)
+            ->assertJsonPath('data.1.homeroom_teacher', null)
+            ->assertJsonPath('data.1.students', []);
+    }
+
+    public function test_class_list_remains_public_and_report_access_remains_restricted(): void
+    {
+        $teacherRole = Role::create(['role_name' => 'Guru']);
+        $teacher = User::create([
+            'fullname' => 'Guru',
+            'username' => 'guru.akses',
+            'email' => 'guru.akses@example.com',
+            'password' => Hash::make('password123'),
+            'role_id' => $teacherRole->id,
+        ]);
+
+        $this->getJson('/api/classes')->assertOk();
+        $this->getJson('/api/attendances/report')->assertUnauthorized();
+
+        $this->actingAs($teacher, 'sanctum')
+            ->getJson('/api/attendances/report')
+            ->assertForbidden();
     }
 
     public function test_mobile_wali_kelas_registration_requires_and_assigns_a_class(): void

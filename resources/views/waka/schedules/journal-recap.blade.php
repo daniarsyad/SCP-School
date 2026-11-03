@@ -84,7 +84,20 @@
                         <td class="px-6 py-4 font-medium">{{ $item->teacher->fullname }}</td>
                         <td class="px-6 py-4">{{ $item->subject }}</td>
                         <td class="px-6 py-4">{{ $item->class->class_name }}</td>
-                        <td class="px-6 py-4">{{ substr($item->start_time, 0, 5) }} - {{ substr($item->end_time, 0, 5) }}</td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center justify-between gap-3 whitespace-nowrap">
+                                <span>{{ substr($item->start_time, 0, 5) }} - {{ substr($item->end_time, 0, 5) }}</span>
+                                @if($item->journals->first()?->photo_path)
+                                    <a href="{{ asset('storage/' . $item->journals->first()->photo_path) }}"
+                                       target="_blank"
+                                       rel="noopener">
+                                        <img src="{{ asset('storage/' . $item->journals->first()->photo_path) }}"
+                                             alt="Foto jurnal"
+                                             class="h-12 w-16 object-cover rounded border">
+                                    </a>
+                                @endif
+                            </div>
+                        </td>
                     </tr>
                 @empty
                     <tr>

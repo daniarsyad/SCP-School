@@ -63,6 +63,7 @@
                     <thead class="bg-gray-50 text-gray-600">
                         <tr>
                             <th class="px-6 py-3 text-left">Kelas</th>
+                            <th class="px-6 py-3 text-left">Tanggal Jurnal</th>
                             <th class="px-6 py-3 text-right">Jurnal</th>
                             <th class="px-6 py-3 text-right">Hadir</th>
                             <th class="px-6 py-3 text-right">Izin</th>
@@ -75,6 +76,13 @@
                         @forelse($classRecap as $row)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-3 font-medium">{{ $row['class_name'] }}</td>
+                                <td class="px-6 py-3">
+                                    <div class="flex flex-wrap gap-1">
+                                        @foreach($row['dates'] as $date)
+                                            <span class="whitespace-nowrap rounded bg-gray-100 px-2 py-1 text-xs">{{ $date }}</span>
+                                        @endforeach
+                                    </div>
+                                </td>
                                 <td class="px-6 py-3 text-right">{{ $row['journals'] }}</td>
                                 <td class="px-6 py-3 text-right text-green-600">{{ $row['hadir'] }}</td>
                                 <td class="px-6 py-3 text-right text-orange-600">{{ $row['izin'] }}</td>
@@ -86,7 +94,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Tidak ada data</td></tr>
+                            <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">Tidak ada data</td></tr>
                         @endforelse
                     </tbody>
                 </table>

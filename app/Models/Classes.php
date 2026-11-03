@@ -18,6 +18,19 @@ class Classes extends Model
         return $this->hasMany(User::class, 'class_id');
     }
 
+    public function homeroomTeacher()
+    {
+        return $this->hasOne(User::class, 'class_id')
+            ->whereHas('role', fn ($query) => $query->where('role_name', 'Wali Kelas'));
+    }
+
+    public function students()
+    {
+        return $this->hasMany(User::class, 'class_id')
+            ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'))
+            ->orderBy('fullname');
+    }
+
     public function schedules()
     {
         return $this->hasMany(Schedule::class, 'class_id');

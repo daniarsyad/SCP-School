@@ -374,6 +374,8 @@ class JournalAttendanceApiTest extends TestCase
             ->getJson('/api/attendances/report?date=2026-10-26')
             ->assertOk()
             ->assertJsonPath('date', '2026-10-26')
+            ->assertJsonPath('data.0.journal.schedule.class.homeroom_teacher.id', $this->wali->id)
+            ->assertJsonPath('data.0.journal.schedule.class.homeroom_teacher.fullname', 'Wali')
             ->assertJsonPath('summary.total_students', 2)
             ->assertJsonPath('summary.hadir', 2);
 
@@ -407,6 +409,21 @@ class JournalAttendanceApiTest extends TestCase
         $this->actingAs($this->wali, 'sanctum')
             ->getJson('/api/attendances/report?class_id='.$otherClass->id)
             ->assertForbidden();
+    }
+
+    public function test_bk_report_succeeds_for_a_class_without_a_homeroom_teacher(): void
+    {
+        $classWithoutWali = Classes::create(['class_name' => 'X RPL 2']);
+        $student = $this->makeUser('Siswa Kelas Dua', 'siswa_kelas_dua', 'Siswa', $classWithoutWali->id);
+        $schedule = $this->makeSchedule('Senin', null, $classWithoutWali);
+        $journal = $this->createLegacyJournalForStudent($schedule, '2026-10-26', $student);
+
+        $this->actingAs($this->bk, 'sanctum')
+            ->getJson('/api/attendances/report?date=2026-10-26&class_id='.$classWithoutWali->id)
+            ->assertOk()
+            ->assertJsonPath('data.0.journal.schedule.class.class_name', 'X RPL 2')
+            ->assertJsonPath('data.0.journal.schedule.class.homeroom_teacher', null)
+            ->assertJsonPath('data.0.journal.id', $journal->id);
     }
 
     public function test_monitoring_is_restricted_and_reports_only_submitted_journals(): void
@@ -475,11 +492,11 @@ class JournalAttendanceApiTest extends TestCase
         ]);
     }
 
-    private function makeSchedule(string $day, ?User $teacher = null): Schedule
+    private function makeSchedule(string $day, ?User $teacher = null, ?Classes $class = null): Schedule
     {
         return Schedule::create([
             'teacher_id' => ($teacher ?? $this->teacher)->id,
-            'class_id' => $this->class->id,
+            'class_id' => ($class ?? $this->class)->id,
             'room_id' => $this->room->id,
             'subject' => 'Bahasa Indonesia',
             'day_of_week' => $day,
@@ -525,6 +542,26 @@ class JournalAttendanceApiTest extends TestCase
                 'date' => $date,
             ]);
         }
+
+        return $journal;
+    }
+
+    private function createLegacyJournalForStudent(Schedule $schedule, string $date, User $student): Journal
+    {
+        $journal = Journal::create([
+            'schedule_id' => $schedule->id,
+            'date' => $date,
+            'topic_description' => 'Topik',
+            'photo_path' => 'journals/test.jpg',
+            'created_at' => now(),
+        ]);
+
+        Attendance::create([
+            'journal_id' => $journal->id,
+            'student_id' => $student->id,
+            'status' => 'Hadir',
+            'date' => $date,
+        ]);
 
         return $journal;
     }

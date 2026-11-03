@@ -70,6 +70,34 @@ Validation errors return HTTP `422`; unauthenticated requests return `401`; sche
 | `PUT /api/attendances/{attendanceId}` | Same authorization and contract as the POST status route | Retained for compatibility. |
 | `GET /api/attendances/my` | Student or linked parent | Existing contract retained. |
 
+## Class lookup
+
+### `GET /api/classes`
+
+This public endpoint returns classes for the mobile class selector and roster. `students` contains only users with the `Siswa` role and is an empty array when the class has no students. The current users schema does not define a `nisn` column, so roster entries include `id` and `fullname`.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 5,
+      "class_name": "X RPL 1",
+      "homeroom_teacher": {
+        "id": 12,
+        "fullname": "Nama Wali Kelas"
+      },
+      "students": [
+        {
+          "id": 101,
+          "fullname": "Nama Siswa"
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## Attendance report and monitoring
 
 ### `GET /api/attendances/report`
@@ -85,6 +113,8 @@ Filters:
 - Do not combine `month` with date filters, or `date` with `from_date`/`to_date`.
 
 The original `date` and `data` fields remain. The response adds `summary` and `student_summary` with counts by status, class roster size when a class is selected, percentage Hadir among recorded attendance rows, per-student totals, trailing and maximum calendar-day Alpha streaks, and `repeated_alpha` when any streak exceeds three days. Period filtering applies before calculating streaks. The backend timezone is currently `UTC`; a local timezone must be configured by the deployment if school-day boundaries are not UTC.
+
+Each attendance in `data` includes the homeroom teacher at `journal.schedule.class.homeroom_teacher`, using the same `{id, fullname}` shape as `/api/classes`; it is `null` when the class has no assigned homeroom teacher.
 
 ```json
 {

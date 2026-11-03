@@ -321,13 +321,34 @@ class MasterDataController extends Controller
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
-        $writer = new Xlsx($spreadsheet);
         $filename = 'template_import_user_scp.xlsx';
+        $temporaryPath = tempnam(sys_get_temp_dir(), 'user-template-');
+        if ($temporaryPath === false) {
+            throw new \RuntimeException('Tidak dapat menyiapkan file template pengguna.');
+        }
 
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        $writer->save('php://output');
-        exit;
+        $path = $temporaryPath . '.xlsx';
+        try {
+            if (!rename($temporaryPath, $path)) {
+                throw new \RuntimeException('Tidak dapat menyiapkan file template pengguna.');
+            }
+            (new Xlsx($spreadsheet))->save($path);
+        } catch (\Throwable $exception) {
+            @unlink($temporaryPath);
+            @unlink($path);
+            throw $exception;
+        }
+
+        // TAMBAHAN: Membersihkan output buffer yang bocor sebelum mengirimkan file
+        if (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        return response()->download(
+            $path,
+            $filename,
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
     }
 
     public function importUsers(Request $request)

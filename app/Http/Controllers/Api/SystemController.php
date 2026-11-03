@@ -24,7 +24,16 @@ class SystemController extends Controller
 
     public function classes()
     {
-        $classes = Classes::orderBy('class_name')->get(['id', 'class_name']);
+        $classes = Classes::with([
+            'homeroomTeacher:id,fullname,class_id',
+            'students:id,fullname,class_id',
+        ])
+            ->orderBy('class_name')
+            ->get(['id', 'class_name']);
+        $classes->each(function (Classes $class) {
+            $class->homeroomTeacher?->makeHidden('class_id');
+            $class->students->each(fn ($student) => $student->makeHidden('class_id'));
+        });
 
         return response()->json([
             'success' => true,
