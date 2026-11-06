@@ -87,7 +87,7 @@
     </section>
 
     <!-- Form Tambah -->
-    <div id="addUserBox" class="{{ $errors->any() ? '' : 'hidden' }} bg-white rounded-lg border border-slate-200 p-5 mb-5">
+    <div id="addUserBox" class="{{ $errors->any() && old('_method') !== 'PUT' ? '' : 'hidden' }} bg-white rounded-lg border border-slate-200 p-5 mb-5">
         <h2 class="text-sm font-semibold text-slate-800 mb-4">Tambah Pengguna Baru</h2>
         <form action="{{ route('waka.master.users.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             @csrf
@@ -317,6 +317,149 @@
                 parentClassSelect.dispatchEvent(new Event('change'));
                 parentStudentSelect.value = @json((string) old('student_id'));
             }
+
+            // ==================== EDIT USER MODAL CONTROLLER ====================
+            const editModal = document.getElementById('editUserModal');
+            const editForm = document.getElementById('editUserForm');
+            const editRoleSelect = document.getElementById('editRoleSelect');
+            const editSubjectField = document.getElementById('editSubjectField');
+            const editSubjectInput = document.getElementById('editSubjectInput');
+            const editClassField = document.getElementById('editClassField');
+            const editClassLabel = document.getElementById('editClassLabel');
+            const editClassSelect = document.getElementById('editClassSelect');
+            const editBkClassField = document.getElementById('editBkClassField');
+            const editBkClassSelect = document.getElementById('editBkClassSelect');
+            const editNisField = document.getElementById('editNisField');
+            const editNisInput = document.getElementById('editNisInput');
+            const editNipField = document.getElementById('editNipField');
+            const editNipInput = document.getElementById('editNipInput');
+            const editParentLinkFields = document.getElementById('editParentLinkFields');
+            const editParentClassSelect = document.getElementById('editParentClassSelect');
+            const editParentStudentSelect = document.getElementById('editParentStudentSelect');
+            const editStudentOptions = Array.from(editParentStudentSelect.querySelectorAll('option[data-class-id]'));
+            const editFullnameInput = document.getElementById('editFullnameInput');
+            const editUsernameInput = document.getElementById('editUsernameInput');
+            const editEmailInput = document.getElementById('editEmailInput');
+            const editPasswordInput = document.getElementById('editPasswordInput');
+
+            function updateEditParentStudents(classId, selectedStudentId) {
+                editParentStudentSelect.value = '';
+                editParentStudentSelect.replaceChildren(new Option(
+                    classId ? '-- Pilih Siswa --' : '-- Pilih kelas terlebih dahulu --',
+                    ''
+                ));
+                editStudentOptions
+                    .filter(option => option.dataset.classId === String(classId))
+                    .forEach(option => editParentStudentSelect.add(option.cloneNode(true)));
+                editParentStudentSelect.disabled = !classId || editParentStudentSelect.options.length === 1;
+                if (classId && editParentStudentSelect.options.length === 1) {
+                    editParentStudentSelect.options[0].textContent = '-- Tidak ada siswa tersedia di kelas ini --';
+                }
+                if (selectedStudentId) {
+                    editParentStudentSelect.value = String(selectedStudentId);
+                }
+            }
+
+            editParentClassSelect.addEventListener('change', function () {
+                updateEditParentStudents(this.value, '');
+            });
+
+            function updateEditRoleFields() {
+                const selected = editRoleSelect.options[editRoleSelect.selectedIndex];
+                const roleName = selected ? (selected.getAttribute('data-name') || '') : '';
+
+                editSubjectField.classList.add('hidden');
+                editSubjectInput.removeAttribute('required');
+
+                editClassField.classList.add('hidden');
+                editClassSelect.removeAttribute('required');
+
+                editBkClassField.classList.add('hidden');
+                editBkClassSelect.removeAttribute('required');
+
+                editParentLinkFields.classList.add('hidden');
+                editParentClassSelect.removeAttribute('required');
+                editParentStudentSelect.removeAttribute('required');
+                editParentStudentSelect.disabled = true;
+
+                editNisField.classList.add('hidden');
+                editNisInput.removeAttribute('required');
+
+                editNipField.classList.add('hidden');
+                editNipInput.removeAttribute('required');
+
+                if (roleName === 'guru' || roleName === 'wali kelas') {
+                    editSubjectField.classList.remove('hidden');
+                    editSubjectInput.setAttribute('required', 'true');
+                }
+                if (roleName === 'siswa' || roleName === 'wali kelas') {
+                    editClassField.classList.remove('hidden');
+                    editClassSelect.setAttribute('required', 'true');
+                    editClassLabel.textContent = roleName === 'wali kelas' ? 'Kelas Wali' : 'Kelas Siswa';
+                }
+                if (roleName === 'guru bk') {
+                    editBkClassField.classList.remove('hidden');
+                    editBkClassSelect.setAttribute('required', 'true');
+                }
+                if (roleName === 'siswa') {
+                    editNisField.classList.remove('hidden');
+                    editNisInput.setAttribute('required', 'true');
+                }
+                if (roleName === 'orang tua') {
+                    editParentLinkFields.classList.remove('hidden');
+                    editParentClassSelect.setAttribute('required', 'true');
+                    editParentStudentSelect.setAttribute('required', 'true');
+                    editParentStudentSelect.disabled = !editParentClassSelect.value;
+                }
+                if (['guru', 'wali kelas', 'guru bk', 'waka kurikulum'].includes(roleName)) {
+                    editNipField.classList.remove('hidden');
+                    editNipInput.setAttribute('required', 'true');
+                }
+            }
+
+            editRoleSelect.addEventListener('change', updateEditRoleFields);
+
+            document.querySelectorAll('[data-open-edit]').forEach(button => {
+                button.addEventListener('click', function () {
+                    const u = JSON.parse(this.dataset.user);
+                    editForm.action = '{{ url('waka/master/users') }}/' + u.id;
+                    editFullnameInput.value = u.fullname || '';
+                    editUsernameInput.value = u.username || '';
+                    editEmailInput.value = u.email || '';
+                    editPasswordInput.value = '';
+                    editRoleSelect.value = u.role_id || '';
+                    editNipInput.value = u.nip || '';
+                    editNisInput.value = u.nis || '';
+                    editSubjectInput.value = u.subject || '';
+                    editClassSelect.value = u.class_id || '';
+
+                    const bkIds = (u.bk_class_ids || []).map(String);
+                    Array.from(editBkClassSelect.options).forEach(opt => {
+                        opt.selected = bkIds.includes(opt.value);
+                    });
+
+                    if (u.parent_class_id) {
+                        editParentClassSelect.value = String(u.parent_class_id);
+                        updateEditParentStudents(String(u.parent_class_id), String(u.student_id || ''));
+                    } else {
+                        editParentClassSelect.value = '';
+                        updateEditParentStudents('', '');
+                    }
+
+                    updateEditRoleFields();
+                    editModal.showModal();
+                });
+            });
+
+            document.querySelectorAll('[data-close-edit-modal]').forEach(button => {
+                button.addEventListener('click', () => editModal.close());
+            });
+
+            editModal?.addEventListener('click', function(e) {
+                if (e.target === editModal) {
+                    editModal.close();
+                }
+            });
         });
     </script>
 
@@ -445,6 +588,26 @@
                             </td>
                             <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <div class="flex justify-end gap-1.5">
+                                    <button type="button"
+                                            data-open-edit
+                                            data-user="{{ json_encode([
+                                                'id' => $user->id,
+                                                'fullname' => $user->fullname,
+                                                'username' => $user->username,
+                                                'email' => $user->email ?? '',
+                                                'role_id' => $user->role_id,
+                                                'role_name' => strtolower($user->role?->role_name ?? ''),
+                                                'nip' => $user->nip ?? '',
+                                                'nis' => $user->nis ?? '',
+                                                'subject' => $user->subject ?? '',
+                                                'class_id' => $user->class_id ?? '',
+                                                'bk_class_ids' => $user->bkClasses->pluck('id')->values()->all(),
+                                                'student_id' => $user->children->first()?->id ?? '',
+                                                'parent_class_id' => $user->children->first()?->class_id ?? '',
+                                            ]) }}"
+                                            class="rounded border border-amber-200 bg-white px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50">
+                                        Edit
+                                    </button>
                                     @if(in_array($user->role?->role_name, ['Guru', 'Wali Kelas', 'Guru BK'], true))
                                         @php($hasWakaAccess = $user->isWaka())
                                         <form action="{{ route('waka.master.users.waka-access', $user->id) }}" method="POST"
@@ -483,4 +646,127 @@
             </table>
         </div>
     </div>
+
+    <!-- Dialog Edit Pengguna -->
+    <dialog id="editUserModal" class="w-[min(94vw,760px)] max-h-[92vh] overflow-y-auto rounded-2xl p-0 shadow-2xl backdrop:bg-slate-950/60">
+        <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+            <div>
+                <h2 class="font-semibold text-slate-800">Edit Data Pengguna</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Perbarui profil dan data akun sesuai peran pengguna.</p>
+            </div>
+            <button type="button" data-close-edit-modal class="rounded-lg px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100">Tutup</button>
+        </div>
+        <form id="editUserForm" method="POST" class="p-6">
+            @csrf
+            @method('PUT')
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- NIS Field (khusus Siswa) -->
+                <div id="editNisField" class="hidden w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">NIS (Nomor Induk Siswa)</label>
+                    <input type="text" name="nis" id="editNisInput" maxlength="30" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+
+                <!-- NIP Field (khusus Waka Kurikulum, Guru, Wali Kelas, Guru BK) -->
+                <div id="editNipField" class="hidden w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">NIP (Nomor Induk Pegawai)</label>
+                    <input type="text" name="nip" id="editNipInput" maxlength="30" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+
+                <!-- Nama Lengkap -->
+                <div class="w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Nama Lengkap</label>
+                    <input type="text" name="fullname" id="editFullnameInput" required maxlength="100" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+
+                <!-- Username -->
+                <div class="w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Username Login</label>
+                    <input type="text" name="username" id="editUsernameInput" required maxlength="50" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                </div>
+
+                <!-- Email -->
+                <div class="w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Email (Opsional)</label>
+                    <input type="email" name="email" id="editEmailInput" maxlength="100" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" placeholder="contoh@gmail.com">
+                </div>
+
+                <!-- Password Baru -->
+                <div class="w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Password Baru (Opsional)</label>
+                    <input type="password" name="password" id="editPasswordInput" minlength="6" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100" placeholder="Kosongkan jika tidak diubah">
+                </div>
+
+                <!-- Peran (Role) -->
+                <div class="w-full">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Peran (Role)</label>
+                    <select name="role_id" id="editRoleSelect" required class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                        @foreach($roles as $role)
+                            <option value="{{ $role->id }}" data-name="{{ strtolower($role->role_name) }}">{{ $role->role_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Dynamic Input Container -->
+                <div class="md:col-span-2 space-y-4">
+                    <!-- Mata Pelajaran (khusus Guru & Wali Kelas) -->
+                    <div id="editSubjectField" class="hidden w-full">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Mata Pelajaran</label>
+                        <input type="text" name="subject" id="editSubjectInput" maxlength="100" placeholder="Contoh: Pemrograman Web" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    </div>
+
+                    <!-- Kelas (khusus Siswa & Wali Kelas) -->
+                    <div id="editClassField" class="hidden w-full">
+                        <label class="block text-xs font-medium text-slate-600 mb-1" id="editClassLabel">Kelas</label>
+                        <select name="class_id" id="editClassSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            <option value="">-- Pilih Kelas --</option>
+                            @foreach($classes as $class)
+                                <option value="{{ $class->id }}">{{ $class->class_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- Kelas Binaan Guru BK (khusus Guru BK) -->
+                    <div id="editBkClassField" class="hidden w-full">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Kelas Binaan Guru BK (bisa memilih beberapa)</label>
+                        <select name="bk_class_ids[]" id="editBkClassSelect" multiple size="4" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                            @foreach($classes as $class)
+                                <option value="{{ $class->id }}">{{ $class->class_name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">Tahan Ctrl (Windows) atau Command (Mac) untuk memilih lebih dari satu kelas.</p>
+                    </div>
+
+                    <!-- Tautan Siswa untuk Orang Tua -->
+                    <div id="editParentLinkFields" class="hidden w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Kelas Siswa</label>
+                            <select name="parent_class_id" id="editParentClassSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                <option value="">-- Pilih Kelas --</option>
+                                @foreach($classes as $class)
+                                    <option value="{{ $class->id }}">{{ $class->class_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Pilih Siswa</label>
+                            <select name="student_id" id="editParentStudentSelect" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                                <option value="">-- Pilih kelas terlebih dahulu --</option>
+                                @foreach($students as $student)
+                                    <option value="{{ $student->id }}" data-class-id="{{ $student->class_id }}">
+                                        {{ $student->fullname }} — NIS {{ $student->nis }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-6">
+                <button type="button" data-close-edit-modal class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Batal</button>
+                <button type="submit" class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">Simpan Perubahan</button>
+            </div>
+        </form>
+    </dialog>
 @endsection

@@ -185,7 +185,7 @@ class MasterDataController extends Controller
     // ==================== USER ====================
     public function users(Request $request)
     {
-        $query = User::with(['role', 'class', 'bkClasses', 'additionalRoles']);
+        $query = User::with(['role', 'class', 'bkClasses', 'additionalRoles', 'children:id,fullname,nis,class_id,parent_id']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -530,7 +530,7 @@ class MasterDataController extends Controller
                 'class_id' => in_array($roleName, ['siswa', 'wali kelas'], true) ? $request->class_id : null,
                 'subject' => in_array($roleName, ['guru', 'wali kelas'], true) ? $request->subject : null,
                 'nis' => $roleName === 'siswa' ? $request->nis : null,
-                'nip' => in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true) ? $request->nip : null,
+                'nip' => in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true) ? ($request->filled('nip') ? $request->nip : null) : null,
             ]);
             $user->bkClasses()->sync($roleName === 'guru bk' ? $request->input('bk_class_ids', []) : []);
         });
@@ -545,21 +545,22 @@ class MasterDataController extends Controller
         $rules = [
             'fullname' => 'required|string|max:100',
             'username' => 'required|string|max:50|unique:users,username,'.$id,
-            'email' => 'required|email|max:100|unique:users,email,'.$id,
+            'email' => 'nullable|email|max:100|unique:users,email,'.$id,
             'password' => 'nullable|string|min:6',
             'role_id' => 'required|exists:roles,id',
             'class_id' => 'nullable|exists:classes,id',
             'subject' => 'nullable|string|max:100',
             'nis' => 'nullable|string|max:30',
             'nip' => 'nullable|string|max:30',
+            'student_id' => 'nullable|integer|exists:users,id',
             'bk_class_ids' => 'sometimes|array',
             'bk_class_ids.*' => 'required|integer|distinct|exists:classes,id',
         ];
 
         $role = Role::find($request->role_id);
+        $roleName = strtolower($role?->role_name ?? '');
 
         if ($role) {
-            $roleName = strtolower($role->role_name);
             if ($roleName === 'siswa' || $roleName === 'wali kelas') {
                 $rules['class_id'] = 'required|exists:classes,id';
             }
@@ -580,7 +581,10 @@ class MasterDataController extends Controller
                 ];
             }
             if (in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true)) {
-                $rules['nip'] = 'required|string|max:30|unique:users,nip,'.$user->id;
+                $rules['nip'] = 'nullable|string|max:30|unique:users,nip,'.$user->id;
+            }
+            if ($roleName === 'orang tua') {
+                $rules['student_id'] = 'nullable|integer|exists:users,id';
             }
         }
 
@@ -589,22 +593,40 @@ class MasterDataController extends Controller
         $data = [
             'fullname' => $request->fullname,
             'username' => $request->username,
-            'email' => $request->email,
+            'email' => $request->filled('email') ? $request->email : null,
             'role_id' => $request->role_id,
-            'class_id' => ($role && in_array(strtolower($role->role_name), ['siswa', 'wali kelas'], true)) ? $request->class_id : null,
-            'subject' => ($role && (strtolower($role->role_name) === 'guru' || strtolower($role->role_name) === 'wali kelas')) ? $request->subject : null,
-            'nis' => $role && strtolower($role->role_name) === 'siswa' ? $request->nis : null,
-            'nip' => $role && in_array(strtolower($role->role_name), ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true) ? $request->nip : null,
+            'class_id' => in_array($roleName, ['siswa', 'wali kelas'], true) ? $request->class_id : null,
+            'subject' => in_array($roleName, ['guru', 'wali kelas'], true) ? $request->subject : null,
+            'nis' => $roleName === 'siswa' ? $request->nis : null,
+            'nip' => in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true) ? ($request->filled('nip') ? $request->nip : null) : null,
         ];
+
+        if ($roleName === 'orang tua' && $request->filled('student_id')) {
+            $student = User::whereKey($request->student_id)->whereNotNull('nis')->first();
+            if ($student) {
+                $data['class_id'] = $student->class_id;
+                $data['nis'] = $student->nis;
+                User::where('parent_id', $user->id)->where('id', '!=', $student->id)->update(['parent_id' => null]);
+                $student->update(['parent_id' => $user->id]);
+            }
+        }
 
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
 
         $user->update($data);
-        $user->bkClasses()->sync($role && strtolower($role->role_name) === 'guru bk'
+        $user->bkClasses()->sync($roleName === 'guru bk'
             ? $request->input('bk_class_ids', [])
             : []);
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'User berhasil diupdate.',
+                'data' => $user->load(['role', 'class', 'bkClasses', 'children']),
+            ]);
+        }
 
         return back()->with('success', 'User berhasil diupdate.');
     }
