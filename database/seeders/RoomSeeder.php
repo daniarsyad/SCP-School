@@ -19,6 +19,11 @@ class RoomSeeder extends Seeder
             ['room_name' => 'Aula'],
         ];
 
-        DB::table('rooms')->insert($rooms);
+        foreach ($rooms as $room) {
+            DB::table('rooms')->updateOrInsert(
+                ['room_name' => $room['room_name']],
+                $room
+            );
+        }
     }
 }

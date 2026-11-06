@@ -11,12 +11,14 @@ class SystemConfigurationSeeder extends Seeder
     {
         $wakaId = DB::table('users')->where('username', 'waka')->value('id');
 
-        DB::table('system_configurations')->insert([
-            'active_cycle'       => '1',
-            'is_schedule_locked' => false,
-            'updated_by'         => $wakaId,
-            'created_at'         => now(),
-            'updated_at'         => now(),
-        ]);
+        if (DB::table('system_configurations')->count() === 0) {
+            DB::table('system_configurations')->insert([
+                'active_cycle'       => '1',
+                'is_schedule_locked' => false,
+                'updated_by'         => $wakaId,
+                'created_at'         => now(),
+                'updated_at'         => now(),
+            ]);
+        }
     }
 }

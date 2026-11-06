@@ -123,4 +123,12 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Deployment & Security Settings
+    |--------------------------------------------------------------------------
+    */
+    'deploy_secret' => env('DEPLOY_SECRET'),
+    'allow_registration' => (bool) env('ALLOW_REGISTRATION', false),
+
 ];

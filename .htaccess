@@ -1,0 +1,36 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 1. Matikan Directory Browsing / Listing
+    <IfModule mod_autoindex.c>
+        Options -Indexes
+    </IfModule>
+
+    # 2. Blokir semua file & folder tersembunyi (dimulai dengan titik: .env, .git, dll.)
+    RewriteRule (^\.|/\.) - [F,L]
+
+    # 3. Blokir berkas sensitif root framework & database dump
+    RewriteRule ^(artisan|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|vite\.config\.js|README\.md|.*\.sql)$ - [F,L]
+
+    # 4. Blokir akses langsung ke folder internal framework
+    RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor)(/.*)?$ - [F,L]
+
+    # 5. Teruskan Authorization Header untuk Sanctum API Token di Shared Hosting Apache
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # 6. Arahkan semua request pengunjung ke folder public/
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Proteksi lapisan kedua jika mod_rewrite tidak aktif
+<FilesMatch "(\.(sql|env|log)|^\.)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<Files artisan>
+    Order allow,deny
+    Deny from all
+</Files>

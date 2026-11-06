@@ -13,21 +13,21 @@ Route::get('/', function () {
 
 // ==================== AUTH (publik) ====================
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:3,1');
 
-// Route Lupa Password (3 Langkah)
+// Route Lupa Password (3 Langkah) dengan Rate Limiting
 Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
-Route::post('/forgot-password/request', [AuthController::class, 'requestOtp'])->name('password.otp');
-Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyOtp'])->name('password.verify-otp');
-Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword'])->name('password.reset');
+Route::post('/forgot-password/request', [AuthController::class, 'requestOtp'])->name('password.otp')->middleware('throttle:3,1');
+Route::post('/forgot-password/verify-otp', [AuthController::class, 'verifyOtp'])->name('password.verify-otp')->middleware('throttle:5,1');
+Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword'])->name('password.reset')->middleware('throttle:5,1');
 
 
-// ==================== WAKA (harus login) ====================
-Route::middleware('auth')->prefix('waka')->name('waka.')->group(function () {
+// ==================== WAKA (harus login & role Waka Kurikulum) ====================
+Route::middleware(['auth', 'waka'])->prefix('waka')->name('waka.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     

@@ -98,7 +98,12 @@ class UserSeeder extends Seeder
             ],
         ];
 
-        DB::table('users')->insert($users);
+        foreach ($users as $userData) {
+            DB::table('users')->updateOrInsert(
+                ['username' => $userData['username']],
+                $userData
+            );
+        }
 
         // Update parent_id siswa
         $ortu1Id = DB::table('users')->where('username', 'ortu1')->value('id');

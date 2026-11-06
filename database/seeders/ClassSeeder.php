@@ -18,6 +18,11 @@ class ClassSeeder extends Seeder
             ['class_name' => 'XII RPL 2'],
         ];
 
-        DB::table('classes')->insert($classes);
+        foreach ($classes as $class) {
+            DB::table('classes')->updateOrInsert(
+                ['class_name' => $class['class_name']],
+                $class
+            );
+        }
     }
 }

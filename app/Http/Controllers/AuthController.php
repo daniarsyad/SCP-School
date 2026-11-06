@@ -64,12 +64,20 @@ class AuthController extends Controller
 
     public function showRegister()
     {
+        if (!config('app.allow_registration', false)) {
+            abort(404);
+        }
+
         $roles = Role::where('role_name', 'Waka Kurikulum')->get();
         return view('auth.register', compact('roles'));
     }
 
     public function register(Request $request)
     {
+        if (!config('app.allow_registration', false)) {
+            abort(404);
+        }
+
         $request->validate([
             'fullname' => 'required|string|max:100',
             'username' => 'required|string|max:50|unique:users,username',
