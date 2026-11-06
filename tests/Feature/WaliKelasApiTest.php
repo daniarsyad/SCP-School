@@ -82,6 +82,7 @@ class WaliKelasApiTest extends TestCase
             'email' => 'wali@example.com',
             'password' => 'password123',
             'role_id' => $role->id,
+            'nip' => '19870001',
             'subject' => 'Produktif',
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('class_id');
@@ -92,6 +93,7 @@ class WaliKelasApiTest extends TestCase
             'email' => 'wali@example.com',
             'password' => 'password123',
             'role_id' => $role->id,
+            'nip' => '19870001',
             'class_id' => $class->id,
             'subject' => 'Produktif',
         ])->assertCreated()
@@ -140,6 +142,7 @@ class WaliKelasApiTest extends TestCase
                 'email' => 'wali@example.com',
                 'password' => 'password123',
                 'role_id' => $waliKelasRole->id,
+                'nip' => '19870002',
                 'class_id' => $class->id,
                 'subject' => 'Produktif',
             ])

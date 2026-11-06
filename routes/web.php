@@ -8,8 +8,8 @@ use App\Http\Controllers\Waka\MasterDataController;
 use App\Http\Controllers\Waka\ScheduleController;
 
 Route::get('/', function () {
-    return redirect()->route('login');
-});
+    return view('landing');
+})->name('landing');
 
 // ==================== AUTH (publik) ====================
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -51,9 +51,17 @@ Route::middleware('auth')->prefix('waka')->name('waka.')->group(function () {
     Route::get('/master/users', [MasterDataController::class, 'users'])->name('master.users');
     Route::post('/master/users', [MasterDataController::class, 'storeUser'])->name('master.users.store');
     Route::put('/master/users/{id}', [MasterDataController::class, 'updateUser'])->name('master.users.update');
+    Route::put('/master/users/{id}/waka-access', [MasterDataController::class, 'setWakaAccess'])->name('master.users.waka-access');
     Route::delete('/master/users/{id}', [MasterDataController::class, 'deleteUser'])->name('master.users.delete');
+    Route::delete('/master/users', [MasterDataController::class, 'deleteAllUsers'])->name('master.users.delete-all');
     Route::get('/master/users/template', [MasterDataController::class, 'downloadUserTemplate'])->name('master.users.template');
     Route::post('/master/users/import', [MasterDataController::class, 'importUsers'])->name('master.users.import');
+
+    // Data Guru
+    Route::get('/teachers', [MasterDataController::class, 'teachers'])->name('teachers.index');
+    Route::post('/teachers', [MasterDataController::class, 'storeTeacher'])->name('teachers.store');
+    Route::put('/teachers/{id}', [MasterDataController::class, 'updateTeacher'])->name('teachers.update');
+    Route::delete('/teachers/{id}', [MasterDataController::class, 'deleteTeacher'])->name('teachers.delete');
     
     // Jadwal (Waka yang input)
     Route::get('/schedules', [ScheduleController::class, 'index'])->name('schedules.index');

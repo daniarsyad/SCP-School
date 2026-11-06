@@ -220,21 +220,12 @@ class ScheduleController extends Controller
         ?string $requestedClassId = null
     ): ?JsonResponse {
         if ($user->isWaliKelas()) {
-            if (!$user->class_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Akun Wali Kelas belum terhubung ke kelas.',
-                ], 422);
+            if ($requestedClassId !== null) {
+                $query->where('class_id', (int) $requestedClassId);
+                return null;
             }
 
-            if ($requestedClassId !== null && (int) $requestedClassId !== (int) $user->class_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda tidak berhak mengakses jadwal kelas tersebut.',
-                ], 403);
-            }
-
-            $query->where('class_id', $user->class_id);
+            $query->where('teacher_id', $user->id);
             return null;
         }
 

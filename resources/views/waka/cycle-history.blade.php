@@ -3,145 +3,228 @@
 @section('title', 'History Putaran - SCP')
 
 @section('content')
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold">History Putaran</h1>
-        <p class="text-gray-500 text-sm">Lihat rekap jurnal dan presensi per putaran.</p>
+    <div class="mb-5">
+        <h1 class="text-xl font-semibold text-slate-900">History Putaran</h1>
+        <p class="text-slate-500 text-sm mt-0.5">Rekapitulasi jurnal mengajar dan presensi siswa per putaran.</p>
     </div>
 
-    <!-- Pilih Putaran -->
-    <form method="GET" class="mb-6">
-        <select name="history_id" class="border rounded-lg px-3 py-2 text-sm" onchange="this.form.submit()">
-            @foreach($histories as $h)
-                <option value="{{ $h->id }}" {{ request('history_id') == $h->id ? 'selected' : '' }}>
-                    Putaran {{ $h->cycle_type }} · {{ $h->start_date->format('d M Y') }} – {{ $h->end_date->format('d M Y') }}
-                </option>
-            @endforeach
-        </select>
-        <input type="hidden" name="tab" value="{{ $tab ?? 'presensi' }}">
-    </form>
-
     @if(isset($selected) && $selected)
-        <!-- Tab -->
-        <div class="flex gap-2 mb-6">
-            <a href="{{ request()->fullUrlWithQuery(['tab' => 'presensi']) }}"
-               class="px-4 py-2 text-sm rounded-lg {{ ($tab ?? 'presensi') === 'presensi' ? 'bg-gray-900 text-white' : 'bg-gray-100' }}">
-                Rekap Presensi
-            </a>
-            <a href="{{ request()->fullUrlWithQuery(['tab' => 'jurnal']) }}"
-               class="px-4 py-2 text-sm rounded-lg {{ ($tab ?? '') === 'jurnal' ? 'bg-gray-900 text-white' : 'bg-gray-100' }}">
-                Jurnal Mengajar
-            </a>
-        </div>
+        <!-- Filter & Tab -->
+        <form method="GET" class="bg-white rounded-lg border border-slate-200 p-4 mb-5">
+            <input type="hidden" name="tab" value="{{ $tab ?? 'presensi' }}">
+
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-3.5 mb-3.5 border-b border-slate-200">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <label for="historySelect" class="text-xs font-medium text-slate-500">Periode Putaran:</label>
+                        <select id="historySelect" name="history_id" class="border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                            @foreach($histories as $h)
+                                <option value="{{ $h->id }}" @selected(($selected?->id ?? null) == $h->id)>
+                                    Putaran {{ $h->cycle_type }} · {{ $h->start_date->format('d M Y') }} – {{ $h->end_date->format('d M Y') }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+                        <a href="{{ request()->fullUrlWithQuery(['tab' => 'presensi']) }}"
+                           class="px-3 py-1 text-xs font-medium rounded transition {{ ($tab ?? 'presensi') === 'presensi' ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900' }}">
+                            Rekap Presensi
+                        </a>
+                        <a href="{{ request()->fullUrlWithQuery(['tab' => 'jurnal']) }}"
+                           class="px-3 py-1 text-xs font-medium rounded transition {{ ($tab ?? '') === 'jurnal' ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900' }}">
+                            Jurnal Mengajar
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+                    <select name="date" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                        <option value="">Semua Tanggal</option>
+                        @foreach($dates as $date)
+                            <option value="{{ $date }}" @selected(request('date') === $date)>{{ \Carbon\Carbon::parse($date)->format('d/m/Y') }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Tingkat</label>
+                    <select name="grade" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                        <option value="">Semua Tingkat</option>
+                        @foreach(['X', 'XI', 'XII'] as $grade)
+                            <option value="{{ $grade }}" @selected(request('grade') === $grade)>{{ $grade }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Jurusan</label>
+                    <select name="major" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                        <option value="">Semua Jurusan</option>
+                        @foreach($classes->pluck('major')->filter()->unique()->sort() as $major)
+                            <option value="{{ $major }}" @selected(request('major') === $major)>{{ $major }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Rombel</label>
+                    <select name="section" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                        <option value="">Semua Rombel</option>
+                        @foreach($classes->pluck('section')->filter()->unique()->sort() as $section)
+                            <option value="{{ $section }}" @selected(request('section') === $section)>{{ $section }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Kelas</label>
+                    <select name="class_id" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                        <option value="">Semua Kelas</option>
+                        @foreach($classes as $class)
+                            <option value="{{ $class->id }}" @selected((string) request('class_id') === (string) $class->id)>{{ $class->class_name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Pengajar</label>
+                    <select name="teacher_id" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                        <option value="">Semua Pengajar</option>
+                        @foreach($teachers as $teacher)
+                            <option value="{{ $teacher->id }}" @selected((string) request('teacher_id') === (string) $teacher->id)>{{ $teacher->fullname }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition">Terapkan Filter</button>
+                <a href="{{ route('waka.cycle.history', ['history_id' => $selected->id, 'tab' => $tab]) }}" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-1.5 rounded-md text-sm font-medium transition">Reset</a>
+            </div>
+        </form>
 
         @if(($tab ?? 'presensi') === 'presensi')
             <!-- Kartu Ringkasan -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white rounded-xl border p-5">
-                    <p class="text-xs text-gray-500">Hadir</p>
-                    <p class="text-2xl font-bold text-green-600">{{ $classRecap->sum('hadir') }}</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <div class="bg-white rounded-lg border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500">Hadir</p>
+                    <p class="text-xl font-semibold text-slate-900 mt-1">{{ $classRecap->sum('hadir') }}</p>
                 </div>
-                <div class="bg-white rounded-xl border p-5">
-                    <p class="text-xs text-gray-500">Sakit</p>
-                    <p class="text-2xl font-bold text-yellow-600">{{ $classRecap->sum('sakit') }}</p>
+                <div class="bg-white rounded-lg border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500">Sakit</p>
+                    <p class="text-xl font-semibold text-slate-900 mt-1">{{ $classRecap->sum('sakit') }}</p>
                 </div>
-                <div class="bg-white rounded-xl border p-5">
-                    <p class="text-xs text-gray-500">Izin</p>
-                    <p class="text-2xl font-bold text-orange-600">{{ $classRecap->sum('izin') }}</p>
+                <div class="bg-white rounded-lg border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500">Izin</p>
+                    <p class="text-xl font-semibold text-slate-900 mt-1">{{ $classRecap->sum('izin') }}</p>
                 </div>
-                <div class="bg-white rounded-xl border p-5">
-                    <p class="text-xs text-gray-500">Alpha</p>
-                    <p class="text-2xl font-bold text-red-600">{{ $classRecap->sum('alpha') }}</p>
+                <div class="bg-white rounded-lg border border-slate-200 p-4">
+                    <p class="text-xs text-slate-500">Alpha</p>
+                    <p class="text-xl font-semibold text-slate-900 mt-1">{{ $classRecap->sum('alpha') }}</p>
                 </div>
             </div>
 
             <!-- Tabel per Kelas -->
-            <div class="bg-white rounded-xl border overflow-hidden">
-                <div class="px-6 py-4 border-b">
-                    <h2 class="font-semibold">Rekapitulasi per Kelas</h2>
-                </div>
-                <table class="w-full text-sm">
-                    <thead class="bg-gray-50 text-gray-600">
-                        <tr>
-                            <th class="px-6 py-3 text-left">Kelas</th>
-                            <th class="px-6 py-3 text-left">Tanggal Jurnal</th>
-                            <th class="px-6 py-3 text-right">Jurnal</th>
-                            <th class="px-6 py-3 text-right">Hadir</th>
-                            <th class="px-6 py-3 text-right">Izin</th>
-                            <th class="px-6 py-3 text-right">Sakit</th>
-                            <th class="px-6 py-3 text-right">Alpha</th>
-                            <th class="px-6 py-3 text-right">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y">
-                        @forelse($classRecap as $row)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-3 font-medium">{{ $row['class_name'] }}</td>
-                                <td class="px-6 py-3">
-                                    <div class="flex flex-wrap gap-1">
-                                        @foreach($row['dates'] as $date)
-                                            <span class="whitespace-nowrap rounded bg-gray-100 px-2 py-1 text-xs">{{ $date }}</span>
-                                        @endforeach
-                                    </div>
-                                </td>
-                                <td class="px-6 py-3 text-right">{{ $row['journals'] }}</td>
-                                <td class="px-6 py-3 text-right text-green-600">{{ $row['hadir'] }}</td>
-                                <td class="px-6 py-3 text-right text-orange-600">{{ $row['izin'] }}</td>
-                                <td class="px-6 py-3 text-right text-yellow-600">{{ $row['sakit'] }}</td>
-                                <td class="px-6 py-3 text-right text-red-600">{{ $row['alpha'] }}</td>
-                                <td class="px-6 py-3 text-right">
-                                    <a href="{{ route('waka.cycle.history.class', [$selected->id, $row['class_id']]) }}"
-                                       class="text-blue-600 hover:underline text-sm">Detail</a>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="8" class="px-6 py-8 text-center text-gray-500">Tidak ada data</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        @else
-             <!-- Tab Jurnal -->
-            <div class="bg-white rounded-xl border overflow-hidden">
-                <div class="px-6 py-4 border-b flex justify-between">
-                    <h2 class="font-semibold">Jurnal Mengajar</h2>
-                    <span class="text-sm text-gray-500">{{ $journals->count() }} jurnal</span>
+            <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
+                    <h2 class="text-sm font-semibold text-slate-800">Rekapitulasi Presensi per Kelas</h2>
+                    <span class="text-xs text-slate-500">{{ $classRecap->count() }} kelas</span>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-600">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
                             <tr>
-                                <th class="px-6 py-3 text-left">Tanggal</th>
-                                <th class="px-6 py-3 text-left">Mapel</th>
-                                <th class="px-6 py-3 text-left">Guru</th>
-                                <th class="px-6 py-3 text-left">Kelas</th>
-                                <th class="px-6 py-3 text-left">Topik / Materi</th>
-                                <th class="px-6 py-3 text-left">Foto</th>
+                                <th class="px-4 py-3 w-12 text-center">No</th>
+                                <th class="px-4 py-3">Kelas</th>
+                                <th class="px-4 py-3">Tanggal Jurnal</th>
+                                <th class="px-4 py-3 text-right">Jurnal</th>
+                                <th class="px-4 py-3 text-right">Hadir</th>
+                                <th class="px-4 py-3 text-right">Izin</th>
+                                <th class="px-4 py-3 text-right">Sakit</th>
+                                <th class="px-4 py-3 text-right">Alpha</th>
+                                <th class="px-4 py-3 text-right w-28">Aksi</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y">
-                            @forelse($journals as $j)
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-3 whitespace-nowrap">{{ \Carbon\Carbon::parse($j->date)->format('d M Y') }}</td>
-                                    <td class="px-6 py-3">{{ $j->schedule->subject ?? '-' }}</td>
-                                    <td class="px-6 py-3">{{ $j->schedule->teacher->fullname ?? '-' }}</td>
-                                    <td class="px-6 py-3">{{ $j->schedule->class->class_name ?? '-' }}</td>
-                                    <td class="px-6 py-3 max-w-xs">
-                                        <div class="text-sm text-gray-700">{{ $j->topic_description ?? '-' }}</div>
+                        <tbody class="divide-y divide-slate-200 text-slate-700">
+                            @forelse($classRecap as $index => $row)
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="px-4 py-3 text-center text-xs text-slate-400">{{ $index + 1 }}</td>
+                                    <td class="px-4 py-3 font-medium text-slate-800">{{ $row['class_name'] }}</td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex flex-wrap gap-1">
+                                            @forelse($row['dates'] as $date)
+                                                <span class="whitespace-nowrap rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ $date }}</span>
+                                            @empty
+                                                <span class="text-xs text-slate-400">-</span>
+                                            @endforelse
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-3">
+                                    <td class="px-4 py-3 text-right text-xs text-slate-600">{{ $row['journals'] }}</td>
+                                    <td class="px-4 py-3 text-right text-xs font-medium text-emerald-700">{{ $row['hadir'] }}</td>
+                                    <td class="px-4 py-3 text-right text-xs text-amber-700">{{ $row['izin'] }}</td>
+                                    <td class="px-4 py-3 text-right text-xs text-slate-600">{{ $row['sakit'] }}</td>
+                                    <td class="px-4 py-3 text-right text-xs font-medium text-red-600">{{ $row['alpha'] }}</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <a href="{{ route('waka.cycle.history.class', [$selected->id, $row['class_id']]) }}"
+                                           class="inline-flex rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                                            Rincian
+                                        </a>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="9" class="px-4 py-10 text-center text-slate-500">Tidak ada data presensi pada periode ini.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        @else
+            <!-- Tab Jurnal -->
+            <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="text-sm font-semibold text-slate-800">Daftar Jurnal Mengajar</h2>
+                    <span class="text-xs text-slate-500">{{ $journals->count() }} jurnal</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3 w-12 text-center">No</th>
+                                <th class="px-4 py-3">Tanggal</th>
+                                <th class="px-4 py-3">Mata Pelajaran</th>
+                                <th class="px-4 py-3">Pengajar</th>
+                                <th class="px-4 py-3">Kelas</th>
+                                <th class="px-4 py-3">Topik / Materi</th>
+                                <th class="px-4 py-3">Lampiran</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 text-slate-700">
+                            @forelse($journals as $index => $j)
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="px-4 py-3 text-center text-xs text-slate-400">{{ $index + 1 }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-xs text-slate-600">{{ \Carbon\Carbon::parse($j->date)->format('d M Y') }}</td>
+                                    <td class="px-4 py-3 font-medium text-slate-800">{{ $j->schedule->subject ?? '-' }}</td>
+                                    <td class="px-4 py-3">{{ $j->schedule->teacher->fullname ?? '-' }}</td>
+                                    <td class="px-4 py-3">
+                                        <span class="inline-flex rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-800">
+                                            {{ $j->schedule->class->class_name ?? '-' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 max-w-xs text-xs text-slate-600">
+                                        {{ $j->topic_description ?? '-' }}
+                                    </td>
+                                    <td class="px-4 py-3">
                                         @if($j->photo_path)
-                                            <a href="{{ asset('storage/' . $j->photo_path) }}" target="_blank">
+                                            <a href="{{ asset('storage/' . $j->photo_path) }}" target="_blank" rel="noopener">
                                                 <img src="{{ asset('storage/' . $j->photo_path) }}"
                                                      alt="Foto jurnal"
-                                                     class="h-12 w-16 object-cover rounded border">
+                                                     class="h-10 w-14 object-cover rounded border border-slate-200">
                                             </a>
                                         @else
-                                            <span class="text-gray-400 text-xs">Tidak ada</span>
+                                            <span class="text-slate-400 text-xs">-</span>
                                         @endif
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Tidak ada jurnal</td></tr>
+                                <tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">Tidak ada data jurnal mengajar.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -149,8 +232,8 @@
             </div>
         @endif
     @else
-        <div class="bg-white rounded-xl border p-10 text-center text-gray-500">
-            Belum ada history putaran.
+        <div class="bg-white rounded-lg border border-slate-200 p-10 text-center text-slate-500 text-sm">
+            Belum ada data history putaran yang tersimpan.
         </div>
     @endif
 @endsection

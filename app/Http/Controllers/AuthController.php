@@ -25,7 +25,15 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        $user = User::where('username', $request->username)->first();
+        $user = User::where(function ($query) {
+            $query->whereHas('role', fn ($roleQuery) => $roleQuery->where('role_name', 'Waka Kurikulum'))
+                ->orWhereHas('additionalRoles', fn ($roleQuery) => $roleQuery->where('role_name', 'Waka Kurikulum'));
+        })
+            ->where(function ($query) use ($request) {
+                $query->where('username', $request->username)
+                    ->orWhere('nip', $request->username);
+            })
+            ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return back()->withErrors([

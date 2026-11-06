@@ -17,7 +17,11 @@ class User extends Authenticatable
         'parent_id',
         'class_id',
         'username',
+        'nis',
+        'nip',
         'email',
+        'phone',
+        'address',
         'password',
         'fullname',
         'subject',
@@ -31,6 +35,22 @@ class User extends Authenticatable
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function additionalRoles()
+    {
+        return $this->belongsToMany(Role::class, 'user_additional_roles');
+    }
+
+    public function hasRole(string $roleName): bool
+    {
+        return $this->role?->role_name === $roleName
+            || $this->additionalRoles->contains('role_name', $roleName);
+    }
+
+    public function hasPrimaryRole(string $roleName): bool
+    {
+        return $this->role?->role_name === $roleName;
     }
 
     public function class()
@@ -58,6 +78,11 @@ class User extends Authenticatable
         return $this->hasMany(Schedule::class, 'teacher_id');
     }
 
+    public function bkClasses()
+    {
+        return $this->belongsToMany(Classes::class, 'guru_bk_classes', 'user_id', 'class_id');
+    }
+
     public function leaveRequests()
     {
         return $this->hasMany(LeaveRequest::class, 'student_id');
@@ -65,36 +90,36 @@ class User extends Authenticatable
 
     public function isWaka()
     {
-        return $this->role && $this->role->role_name === 'Waka Kurikulum';
+        return $this->hasRole('Waka Kurikulum');
     }
 
     public function isGuru()
     {
-        return $this->role && $this->role->role_name === 'Guru';
+        return $this->hasRole('Guru');
     }
 
     public function isWaliKelas()
     {
-        return $this->role && $this->role->role_name === 'Wali Kelas';
+        return $this->hasRole('Wali Kelas');
     }
 
     public function isGuruBK()
     {
-        return $this->role && $this->role->role_name === 'Guru BK';
+        return $this->hasRole('Guru BK');
     }
 
     public function isKepalaSekolah()
     {
-        return $this->role && $this->role->role_name === 'Kepala Sekolah';
+        return $this->hasRole('Kepala Sekolah');
     }
 
     public function isSiswa()
     {
-        return $this->role && $this->role->role_name === 'Siswa';
+        return $this->hasRole('Siswa');
     }
 
     public function isOrangTua()
     {
-        return $this->role && $this->role->role_name === 'Orang Tua';
+        return $this->hasRole('Orang Tua');
     }
 }

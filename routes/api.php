@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\JournalController;
 use App\Http\Controllers\Api\LeaveRequestController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\SystemController;
+use App\Http\Controllers\Api\WakaController;
 use Illuminate\Support\Facades\Route;
 
 // ==================== PUBLIK ====================
@@ -44,11 +45,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/children', [AuthController::class, 'children']);
+    Route::get('/dashboard/today', [AttendanceController::class, 'todaySummary']);
 
     // ==================== SYSTEM ====================
 
     Route::get('/system/config', [SystemController::class, 'config']);
+    Route::put('/system/cycle', [SystemController::class, 'updateCycle']);
+    Route::put('/system/schedule-lock', [SystemController::class, 'updateScheduleLock']);
     Route::get('/rooms', [SystemController::class, 'rooms']);
+
+    // ==================== WAKA KURIKULUM ====================
+
+    Route::get('/waka/dashboard-summary', [WakaController::class, 'dashboardSummary']);
+    Route::put('/waka/cycle', [SystemController::class, 'updateCycle']);
+    Route::put('/waka/schedule-lock', [SystemController::class, 'updateScheduleLock']);
 
     // ==================== SCHEDULE ====================
 
@@ -88,6 +98,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendances/report', [
         AttendanceController::class,
         'report',
+    ]);
+    Route::get('/attendances/report/filters', [
+        AttendanceController::class,
+        'reportFilters',
     ]);
     Route::get('/attendances/report/export', [
         AttendanceController::class,

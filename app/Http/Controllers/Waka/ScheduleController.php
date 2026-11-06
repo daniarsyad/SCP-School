@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Classes;
 use App\Models\Room;
 use App\Models\Period;
+use App\Services\ScheduleSubjectValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -26,6 +27,9 @@ class ScheduleController extends Controller
         $cycle = $request->get('cycle', $config->active_cycle);
         $dayFilter = $request->get('day');
         $classFilter = $request->get('class_id');
+        $teacherFilter = $request->get('teacher_id');
+        $roomFilter = $request->get('room_id');
+        $viewMode = $request->get('view', 'matrix');
 
         $query = Schedule::with(['teacher', 'class', 'room', 'period'])
             ->where('cycle_type', $cycle);
@@ -36,6 +40,14 @@ class ScheduleController extends Controller
 
         if ($classFilter) {
             $query->where('class_id', $classFilter);
+        }
+
+        if ($teacherFilter) {
+            $query->where('teacher_id', $teacherFilter);
+        }
+
+        if ($roomFilter) {
+            $query->where('room_id', $roomFilter);
         }
 
         if ($request->filled('grade') || $request->filled('major') || $request->filled('section')) {
@@ -52,9 +64,39 @@ class ScheduleController extends Controller
             });
         }
 
-        $schedules = $query->orderBy('start_time')->get();
+        $all = Period::orderBy('start_time')->get();
+        $learn = $all->where('is_break', false)->values();
 
-        $days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+        $periodsByDay = [
+            'Senin'  => $learn->where('day_group', 'senin')->values(),
+            'Selasa' => $learn->where('day_group', 'selasa')->values(),
+            'Rabu'   => $learn->where('day_group', 'rabu_kamis')->values(),
+            'Kamis'  => $learn->where('day_group', 'rabu_kamis')->values(),
+            'Jumat'  => $learn->where('day_group', 'jumat')->values(),
+        ];
+
+        $schedules = $query->orderBy('start_time')->orderBy('class_id')->get();
+
+        foreach ($schedules as $s) {
+            $dayPeriods = $periodsByDay[$s->day_of_week] ?? collect();
+            $startP = $dayPeriods->first(fn ($p) => substr((string) $p->start_time, 0, 5) === substr((string) $s->start_time, 0, 5))
+                ?? $s->period;
+            $endP = $dayPeriods->first(fn ($p) => substr((string) $p->end_time, 0, 5) === substr((string) $s->end_time, 0, 5))
+                ?? $startP;
+
+            $spNum = (int) ($startP->period_number ?? 1);
+            $epNum = (int) ($endP->period_number ?? $spNum);
+            if ($epNum < $spNum) {
+                $epNum = $spNum;
+            }
+
+            $s->start_period_number = $spNum;
+            $s->end_period_number = $epNum;
+            $s->end_period_id = $endP->id ?? ($s->period_id ?? 0);
+            $s->period_span = max(1, $epNum - $spNum + 1);
+        }
+
+        $days = $dayFilter ? [$dayFilter] : ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
         $times = $schedules->pluck('start_time')->unique()->sort()->values();
 
         $matrix = [];
@@ -68,8 +110,50 @@ class ScheduleController extends Controller
             }
         }
 
-        $teachers = User::with('role')->whereHas('role', function ($q) {
-            $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']);
+        $singleEntityMode = (bool) ($classFilter || $teacherFilter || $roomFilter);
+        $periodMatrix = [];
+        $skipCells = [];
+        $periodTimeHints = [];
+
+        for ($pNum = 1; $pNum <= 10; $pNum++) {
+            $senP = $periodsByDay['Senin']->firstWhere('period_number', $pNum);
+            $selP = $periodsByDay['Selasa']->firstWhere('period_number', $pNum);
+            $rabP = $periodsByDay['Rabu']->firstWhere('period_number', $pNum);
+            $jumP = $periodsByDay['Jumat']->firstWhere('period_number', $pNum);
+
+            $periodTimeHints[$pNum] = [
+                'Senin'  => $senP ? substr((string) $senP->start_time, 0, 5) . '–' . substr((string) $senP->end_time, 0, 5) : '-',
+                'Selasa' => $selP ? substr((string) $selP->start_time, 0, 5) . '–' . substr((string) $selP->end_time, 0, 5) : '-',
+                'Rabu'   => $rabP ? substr((string) $rabP->start_time, 0, 5) . '–' . substr((string) $rabP->end_time, 0, 5) : '-',
+                'Jumat'  => $jumP ? substr((string) $jumP->start_time, 0, 5) . '–' . substr((string) $jumP->end_time, 0, 5) : '-',
+            ];
+
+            $periodMatrix[$pNum] = [];
+            foreach ($days as $day) {
+                if ($singleEntityMode) {
+                    $items = $schedules
+                        ->where('day_of_week', $day)
+                        ->where('start_period_number', $pNum)
+                        ->values();
+                    $periodMatrix[$pNum][$day] = $items;
+
+                    foreach ($items as $item) {
+                        for ($sp = $item->start_period_number + 1; $sp <= $item->end_period_number; $sp++) {
+                            $skipCells[$sp][$day] = true;
+                        }
+                    }
+                } else {
+                    $periodMatrix[$pNum][$day] = $schedules
+                        ->where('day_of_week', $day)
+                        ->filter(fn ($item) => $item->start_period_number <= $pNum && $item->end_period_number >= $pNum)
+                        ->values();
+                }
+            }
+        }
+
+        $teachers = User::with('role')->where(function ($query) {
+            $query->whereHas('role', fn ($q) => $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+                ->orWhereHas('additionalRoles', fn ($q) => $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']));
         })->orderBy('fullname')->get();
 
         $classesQuery = Classes::query();
@@ -82,20 +166,23 @@ class ScheduleController extends Controller
         if ($request->filled('section')) {
             $classesQuery->where('section', $request->section);
         }
-        $classes = $classesQuery->orderBy('class_name')->get();
+        $classes = $classesQuery->orderByRaw("FIELD(grade, 'X', 'XI', 'XII')")->orderBy('major')->orderBy('section')->get();
 
-        $rooms = Room::orderBy('room_name')->get();
-
-        $all = Period::orderBy('start_time')->get();
-        $learn = $all->where('is_break', false)->values();
-
-        $periodsByDay = [
-            'Senin'  => $learn->where('day_group', 'senin')->values(),
-            'Selasa' => $learn->where('day_group', 'selasa')->values(),
-            'Rabu'   => $learn->where('day_group', 'rabu_kamis')->values(),
-            'Kamis'  => $learn->where('day_group', 'rabu_kamis')->values(),
-            'Jumat'  => $learn->where('day_group', 'jumat')->values(),
-        ];
+        $rooms = Room::all()->sortBy(function ($r) {
+            if (preg_match('/^Ruang\s+(\d+)$/i', $r->room_name, $m)) {
+                return sprintf('1_%04d', (int) $m[1]);
+            }
+            if (preg_match('/^Lab\s+(\d+)$/i', $r->room_name, $m)) {
+                return sprintf('2_%04d', (int) $m[1]);
+            }
+            if (stripos($r->room_name, 'Lab') === 0) {
+                return '2_9999_' . $r->room_name;
+            }
+            if (preg_match('/^OR\s+(\d+)$/i', $r->room_name, $m)) {
+                return sprintf('3_%04d', (int) $m[1]);
+            }
+            return '4_' . $r->room_name;
+        })->values();
 
         $periodsByDayJson = [];
         foreach (['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'] as $day) {
@@ -111,7 +198,8 @@ class ScheduleController extends Controller
 
         return view('waka.schedules.index', compact(
             'schedules', 'config', 'teachers', 'classes', 'rooms',
-            'matrix', 'days', 'cycle', 'dayFilter', 'classFilter',
+            'matrix', 'periodMatrix', 'skipCells', 'periodTimeHints', 'singleEntityMode',
+            'days', 'cycle', 'dayFilter', 'classFilter', 'teacherFilter', 'roomFilter', 'viewMode',
             'periodsByDayJson'
         ));
     }
@@ -147,7 +235,7 @@ class ScheduleController extends Controller
             ['Petunjuk Import Jadwal'],
             ['Isi satu jadwal pada setiap baris di sheet Jadwal.'],
             ['Pengajar wajib sudah terdaftar di menu Pengguna dan memiliki role Guru, Wali Kelas, atau Guru BK.'],
-            ['Isi Pengajar dengan nama lengkap atau username; mata pelajaran harus sama dengan mata pelajaran yang terdaftar untuk pengajar tersebut.'],
+            ['Isi Pengajar dengan nama lengkap atau username; mata pelajaran harus sama dengan data pengajar. Untuk Guru BK, gunakan BK atau Bimbingan dan Konseling.'],
             ['Nama kelas dan ruangan harus sesuai dengan data yang terdaftar.'],
             ['Putaran diisi 1 atau 2; hari diisi Senin, Selasa, Rabu, Kamis, atau Jumat.'],
             ['Jam mulai dan selesai diisi urutan jam pelajaran / Jam ke- (contoh: 2 atau Jam ke-2).'],
@@ -234,8 +322,11 @@ class ScheduleController extends Controller
             }
         }
 
-        $teacherUsers = User::with('role')
-            ->whereHas('role', fn ($query) => $query->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+        $teacherUsers = User::with(['role', 'additionalRoles'])
+            ->where(function ($query) {
+                $query->whereHas('role', fn ($q) => $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+                    ->orWhereHas('additionalRoles', fn ($q) => $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']));
+            })
             ->get();
         $classes = Classes::all();
         $rooms = Room::all();
@@ -259,17 +350,19 @@ class ScheduleController extends Controller
 
             $rowNumber = $index + 1;
             $dataRowCount++;
-            if ($dataRowCount > 500) {
-                $errors[] = 'Jumlah data melebihi batas 500 jadwal per import.';
+            if ($dataRowCount > 2000) {
+                $errors[] = 'Jumlah data melebihi batas 2.000 jadwal per import.';
                 break;
             }
 
-            [$cycle, $teacherName, $className, $roomName, $subject, $day, $startTime, $endTime] =
+            [$cycleRaw, $teacherName, $className, $roomName, $subject, $day, $startTime, $endTime] =
                 array_pad($values, 8, '');
             $rowErrors = [];
 
+            // Ekstrak angka putaran (mendukung 'Putaran 1', 'Putaran 2', '1', atau '2')
+            $cycle = preg_replace('/[^\d]/', '', $cycleRaw);
             if (!in_array($cycle, ['1', '2'], true)) {
-                $rowErrors[] = 'Kolom Putaran: harus diisi 1 atau 2.';
+                $rowErrors[] = 'Kolom Putaran: harus diisi 1 atau 2 (contoh: 1 atau Putaran 1).';
             }
 
             $teacherMatches = $teacherUsers->filter(fn ($teacher) =>
@@ -285,14 +378,14 @@ class ScheduleController extends Controller
                         : "Kolom Pengajar: \"{$teacherName}\" tidak unik; gunakan username.");
             }
 
-            $class = $classes->first(fn ($item) => strcasecmp($item->class_name, $className) === 0);
+            $class = $this->resolveClass($className, $classes);
             if ($className === '' || !$class) {
                 $rowErrors[] = $className === ''
                     ? 'Kolom Kelas: wajib diisi.'
                     : "Kolom Kelas: \"{$className}\" tidak ditemukan.";
             }
 
-            $room = $rooms->first(fn ($item) => strcasecmp($item->room_name, $roomName) === 0);
+            $room = $this->resolveRoom($roomName, $rooms);
             if ($roomName === '' || !$room) {
                 $rowErrors[] = $roomName === ''
                     ? 'Kolom Ruangan: wajib diisi.'
@@ -304,7 +397,7 @@ class ScheduleController extends Controller
                     ? 'Kolom Mata Pelajaran: wajib diisi.'
                     : 'Kolom Mata Pelajaran: maksimal 100 karakter.';
             } elseif ($teacher) {
-                $teacherSubjectError = $this->teacherSubjectError($teacher, $subject);
+                $teacherSubjectError = app(ScheduleSubjectValidator::class)->errorFor($teacher, $subject);
                 if ($teacherSubjectError) {
                     $rowErrors[] = $teacherSubjectError;
                 }
@@ -370,6 +463,7 @@ class ScheduleController extends Controller
                 continue;
             }
 
+            $importConflict = false;
             foreach ($prepared as $previous) {
                 $overlaps = $previous['cycle_type'] === $cycle
                     && $previous['day_of_week'] === $day
@@ -381,8 +475,13 @@ class ScheduleController extends Controller
 
                 if ($overlaps && $sameResource) {
                     $errors[] = "Baris {$rowNumber} (Putaran {$cycle}): bentrok dengan jadwal pada baris {$previous['row_number']} (Putaran {$previous['cycle_type']}) di file import.";
+                    $importConflict = true;
                     break;
                 }
+            }
+
+            if ($importConflict) {
+                continue;
             }
 
             $prepared[] = $scheduleData;
@@ -431,7 +530,7 @@ class ScheduleController extends Controller
             'cycle_type'      => 'required|in:1,2',
         ]);
 
-        $teacherSubjectError = $this->teacherSubjectError(
+        $teacherSubjectError = app(ScheduleSubjectValidator::class)->errorFor(
             User::findOrFail($request->teacher_id),
             $request->subject
         );
@@ -475,8 +574,9 @@ class ScheduleController extends Controller
             'day_of_week' => $request->day_of_week,
             'start_time'  => $start,
             'end_time'    => $end,
-            'period_id'   => $startPeriod->id,
-            'cycle_type'  => $request->cycle_type,
+            'period_id'     => $startPeriod->id,
+            'end_period_id' => $endPeriod->id,
+            'cycle_type'    => $request->cycle_type,
         ]);
 
         $label = $startPeriod->id === $endPeriod->id
@@ -507,7 +607,7 @@ class ScheduleController extends Controller
             'cycle_type'      => 'required|in:1,2',
         ]);
 
-        $teacherSubjectError = $this->teacherSubjectError(
+        $teacherSubjectError = app(ScheduleSubjectValidator::class)->errorFor(
             User::findOrFail($request->teacher_id),
             $request->subject
         );
@@ -552,8 +652,9 @@ class ScheduleController extends Controller
             'day_of_week' => $request->day_of_week,
             'start_time'  => $start,
             'end_time'    => $end,
-            'period_id'   => $startPeriod->id,
-            'cycle_type'  => $request->cycle_type,
+            'period_id'     => $startPeriod->id,
+            'end_period_id' => $endPeriod->id,
+            'cycle_type'    => $request->cycle_type,
         ]);
 
         $label = $startPeriod->id === $endPeriod->id
@@ -576,22 +677,45 @@ class ScheduleController extends Controller
         return back()->with('success', 'Jadwal berhasil dihapus.');
     }
 
-    public function journalRecap()
+    public function journalRecap(Request $request)
     {
         $config = SystemConfiguration::current();
-        $today = Carbon::now()->locale('id')->isoFormat('dddd');
-        $todayDate = Carbon::today()->toDateString();
-        $now = Carbon::now();
+        $validated = $request->validate([
+            'date' => 'nullable|date',
+            'class_id' => 'nullable|exists:classes,id',
+            'grade' => 'nullable|in:X,XI,XII',
+            'major' => 'nullable|string|max:20',
+            'section' => 'nullable|string|max:10',
+            'teacher_id' => 'nullable|exists:users,id',
+        ]);
+        $selectedDate = Carbon::parse($validated['date'] ?? Carbon::now('Asia/Jakarta')->toDateString(), 'Asia/Jakarta');
+        $todayDate = $selectedDate->toDateString();
+        $today = [
+            1 => 'Senin',
+            2 => 'Selasa',
+            3 => 'Rabu',
+            4 => 'Kamis',
+            5 => 'Jumat',
+            6 => 'Sabtu',
+            7 => 'Minggu',
+        ][$selectedDate->dayOfWeekIso];
+        $now = Carbon::now('Asia/Jakarta');
 
         $todaySchedules = Schedule::with([
             'teacher',
             'class',
             'room',
             'period',
-            'journals' => fn($query) => $query->whereDate('date', $todayDate),
+            'journals' => fn ($query) => $query->whereDate('date', $todayDate),
         ])
             ->where('cycle_type', $config->active_cycle)
             ->where('day_of_week', $today)
+            ->when(isset($validated['class_id']), fn ($query) => $query->where('class_id', $validated['class_id']))
+            ->when(isset($validated['teacher_id']), fn ($query) => $query->where('teacher_id', $validated['teacher_id']))
+            ->whereHas('class', fn ($query) => $query
+                ->when(isset($validated['grade']), fn ($q) => $q->where('grade', $validated['grade']))
+                ->when(isset($validated['major']), fn ($q) => $q->where('major', $validated['major']))
+                ->when(isset($validated['section']), fn ($q) => $q->where('section', $validated['section'])))
             ->orderBy('start_time')
             ->get();
 
@@ -599,18 +723,31 @@ class ScheduleController extends Controller
 
         $belumIsi = $todaySchedules->filter(fn($s) => $s->journals->isEmpty());
 
-        $terlambat = $belumIsi->filter(function ($s) use ($now) {
+        $terlambat = $todayDate === $now->toDateString()
+            ? $belumIsi->filter(function ($s) use ($now) {
             $endTime = Carbon::parse($s->end_time);
             return $now->gt($endTime->copy()->addMinutes(30));
-        });
+            })
+            : collect();
+
+        $classes = Classes::orderBy('grade')->orderBy('major')->orderBy('section')->get();
+        $teachers = User::where(function ($query) {
+            $query->whereHas('role', fn ($q) => $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+                ->orWhereHas('additionalRoles', fn ($q) => $q->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']));
+        })
+            ->orderBy('fullname')
+            ->get(['id', 'fullname']);
 
         return view('waka.schedules.journal-recap', compact(
             'config',
             'today',
+            'todayDate',
             'todaySchedules',
             'sudahIsi',
             'belumIsi',
-            'terlambat'
+            'terlambat',
+            'classes',
+            'teachers'
         ));
     }
 
@@ -703,19 +840,67 @@ class ScheduleController extends Controller
         return null;
     }
 
-    private function teacherSubjectError(User $teacher, string $subject): ?string
+    private function resolveClass(?string $rawClassName, $classes): ?Classes
     {
-        $teacherSubject = trim((string) $teacher->subject);
-        $subject = trim($subject);
-
-        if ($teacherSubject === '') {
-            return "Kolom Pengajar / Mata Pelajaran: {$teacher->fullname} belum memiliki mata pelajaran pada data pengguna.";
+        if (!$rawClassName) {
+            return null;
         }
 
-        if (strcasecmp($teacherSubject, $subject) !== 0) {
-            return "Kolom Pengajar / Mata Pelajaran: {$teacher->fullname} mengajar \"{$teacherSubject}\", bukan \"{$subject}\".";
+        $trimmed = trim($rawClassName);
+        if ($trimmed === '') {
+            return null;
         }
 
-        return null;
+        // 1. Direct match
+        $class = $classes->first(fn ($item) => strcasecmp($item->class_name, $trimmed) === 0);
+        if ($class) {
+            return $class;
+        }
+
+        // 2. Normalisasi spasi yang hilang antara jurusan dan nomor rombel (contoh: XI TKJ1 -> XI TKJ 1)
+        $normalized = preg_replace('/^([X|V|I]+)\s+([A-Za-z]+)(\d+)$/i', '$1 $2 $3', $trimmed);
+        $class = $classes->first(fn ($item) => strcasecmp($item->class_name, $normalized) === 0);
+        if ($class) {
+            return $class;
+        }
+
+        // 3. Mapping alias umum (contoh: AK -> AKL, BD -> BD 1, LPS -> LPS 1)
+        $alias = $normalized;
+        $alias = preg_replace('/^([X|V|I]+)\s+AK\s+(\d+)$/i', '$1 AKL $2', $alias);
+        $alias = preg_replace('/^([X|V|I]+)\s+AK(\d+)$/i', '$1 AKL $2', $alias);
+        $alias = preg_replace('/^([X|V|I]+)\s+BD$/i', '$1 BD 1', $alias);
+        $alias = preg_replace('/^([X|V|I]+)\s+LPS$/i', '$1 LPS 1', $alias);
+
+        $class = $classes->first(fn ($item) => strcasecmp($item->class_name, $alias) === 0);
+        if ($class) {
+            return $class;
+        }
+
+        // 4. Fallback cari berdasarkan class_name lowercase
+        return $classes->first(fn ($item) =>
+            strcasecmp(trim((string)$item->class_name), $trimmed) === 0
+            || strcasecmp(trim((string)$item->class_name), $normalized) === 0
+            || strcasecmp(trim((string)$item->class_name), $alias) === 0
+        );
+    }
+
+    private function resolveRoom(?string $roomName, $rooms): ?Room
+    {
+        if (!$roomName) {
+            return null;
+        }
+
+        $trimmed = trim($roomName);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $room = $rooms->first(fn ($item) => strcasecmp($item->room_name, $trimmed) === 0);
+        if ($room) {
+            return $room;
+        }
+
+        $normalized = preg_replace('/\s+/', ' ', $trimmed);
+        return $rooms->first(fn ($item) => strcasecmp($item->room_name, $normalized) === 0);
     }
 }

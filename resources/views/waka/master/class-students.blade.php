@@ -3,38 +3,42 @@
 @section('title', 'Siswa - ' . $class->class_name)
 
 @section('content')
-    <div class="mb-6">
-        <a href="{{ route('waka.master.classes') }}" class="text-blue-600 hover:underline text-sm">← Kembali ke Kelas</a>
-        <h1 class="text-2xl font-bold mt-2">Siswa {{ $class->class_name }}</h1>
-        <p class="text-gray-500 text-sm">Daftar siswa di kelas ini</p>
+    <div class="mb-5">
+        <a href="{{ route('waka.master.classes') }}" class="text-blue-600 hover:underline text-xs font-medium">← Kembali ke Daftar Kelas</a>
+        <h1 class="text-xl font-semibold text-slate-900 mt-1.5">Siswa Kelas {{ $class->class_name }}</h1>
+        <p class="text-slate-500 text-sm mt-0.5">Daftar siswa aktif yang terdaftar di kelas {{ $class->class_name }}.</p>
     </div>
 
-    <div class="bg-white rounded-xl border overflow-hidden">
-        <div class="px-6 py-4 border-b flex justify-between items-center">
-            <h2 class="font-semibold">Daftar Siswa</h2>
-            <span class="text-sm text-gray-500">Total: {{ $students->count() }} Siswa</span>
+    <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div class="px-5 py-3.5 border-b border-slate-200 flex justify-between items-center">
+            <h2 class="text-sm font-semibold text-slate-800">Daftar Siswa</h2>
+            <span class="text-xs text-slate-500">{{ $students->count() }} siswa</span>
         </div>
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 text-gray-600">
-                <tr>
-                    <th class="px-6 py-3 text-left font-medium w-16">No</th>
-                    <th class="px-6 py-3 text-left font-medium">Nama Siswa</th>
-                    <th class="px-6 py-3 text-left font-medium">Username</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y">
-                @forelse($students as $index => $student)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-3">{{ $index + 1 }}</td>
-                        <td class="px-6 py-3 font-medium">{{ $student->fullname }}</td>
-                        <td class="px-6 py-3 text-gray-600">{{ $student->username }}</td>
-                    </tr>
-                @empty
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
                     <tr>
-                        <td colspan="3" class="px-6 py-10 text-center text-gray-500">Belum ada siswa di kelas ini</td>
+                        <th class="px-4 py-3 w-12 text-center">No</th>
+                        <th class="px-4 py-3 w-40">NIS</th>
+                        <th class="px-4 py-3">Nama Lengkap</th>
+                        <th class="px-4 py-3">Username</th>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-slate-700">
+                    @forelse($students as $index => $student)
+                        <tr class="hover:bg-slate-50/70">
+                            <td class="px-4 py-3 text-center text-xs text-slate-400">{{ $index + 1 }}</td>
+                            <td class="px-4 py-3 text-xs text-slate-600">{{ $student->nis ?? '-' }}</td>
+                            <td class="px-4 py-3 font-medium text-slate-800">{{ $student->fullname }}</td>
+                            <td class="px-4 py-3 text-xs text-slate-600">{{ $student->username }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="px-4 py-10 text-center text-slate-500">Belum ada siswa terdaftar di kelas ini.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 @endsection

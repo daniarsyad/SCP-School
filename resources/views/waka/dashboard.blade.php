@@ -3,206 +3,215 @@
 @section('title', 'Dashboard - SCP')
 
 @section('content')
-    <div class="mb-8">
-        <h1 class="text-2xl font-semibold text-slate-800">Dashboard</h1>
-        <p class="text-slate-500 text-sm mt-0.5">Selamat datang, {{ auth()->user()->fullname }}</p>
+    {{-- Header Dashboard --}}
+    <div class="mb-5">
+        <h1 class="text-xl font-bold text-slate-900">Dashboard Waka Kurikulum</h1>
+        <p class="text-slate-500 text-sm mt-0.5">Selamat datang, {{ auth()->user()->fullname }} · Ringkasan akademik hari ini</p>
     </div>
 
-    {{-- Ringkasan --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs text-slate-500">Siklus Aktif</p>
-                    <h3 class="text-xl font-semibold text-blue-600 mt-1">Putaran {{ $config->active_cycle }}</h3>
-                    <p class="text-xs text-slate-400 mt-1">
-                        {{ $config->start_date?->format('d M') }} – {{ $config->end_date?->format('d M Y') }}
-                    </p>
-                </div>
-                <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs text-slate-500">Status Jadwal</p>
-                    <h3 class="text-xl font-semibold mt-1 {{ $config->is_schedule_locked ? 'text-red-600' : 'text-emerald-600' }}">
-                        {{ $config->is_schedule_locked ? 'Terkunci' : 'Terbuka' }}
-                    </h3>
-                    <p class="text-xs text-slate-400 mt-1">
-                        {{ $config->is_schedule_locked ? 'Tidak bisa diubah' : 'Siap diedit' }}
-                    </p>
-                </div>
-                <div class="w-10 h-10 rounded-lg flex items-center justify-center
-                    {{ $config->is_schedule_locked ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600' }}">
-                    @if($config->is_schedule_locked)
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                        </svg>
-                    @else
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
-                        </svg>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs text-slate-500">Jurnal Terlambat</p>
-                    <h3 class="text-xl font-semibold text-amber-600 mt-1">{{ $lateJournals->count() }}</h3>
-                    <p class="text-xs text-slate-400 mt-1">Belum diisi &gt;30 menit</p>
-                </div>
-                <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <div class="flex items-start justify-between">
-                <div>
-                    <p class="text-xs text-slate-500">Total Jadwal</p>
-                    <h3 class="text-xl font-semibold text-indigo-600 mt-1">
-                        {{ \App\Models\Schedule::where('cycle_type', $config->active_cycle)->count() }}
-                    </h3>
-                    <p class="text-xs text-slate-400 mt-1">Di putaran ini</p>
-                </div>
-                <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-                    </svg>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Alert jurnal --}}
-    @if($lateJournals->count() > 0)
-        <div class="bg-white rounded-xl border border-amber-200 mb-8 overflow-hidden">
-            <div class="bg-amber-50 px-5 py-3 border-b border-amber-100 flex items-center gap-2">
-                <svg class="w-4 h-4 text-amber-700" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
-                </svg>
-                <h2 class="text-sm font-medium text-amber-800">Guru belum mengisi jurnal (&gt;30 menit)</h2>
-            </div>
-            <div class="divide-y divide-slate-100">
-                @foreach($lateJournals as $item)
-                    <div class="px-5 py-3 flex justify-between items-center hover:bg-slate-50">
-                        <div>
-                            <p class="text-sm font-medium text-slate-800">{{ $item->teacher->fullname }}</p>
-                            <p class="text-xs text-slate-500">{{ $item->subject }} · {{ $item->class->class_name }}</p>
-                        </div>
-                        <div class="text-right text-xs text-slate-500">
-                            <p>{{ substr($item->start_time, 0, 5) }} – {{ substr($item->end_time, 0, 5) }}</p>
-                            <p>{{ $item->room->room_name }}</p>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @else
-        <div class="bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-4 mb-8 flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
-                </svg>
-            </div>
+    {{-- Panel Kontrol Siklus & Status Jadwal (Ringkas & Proporsional) --}}
+    <div class="bg-white rounded-xl border border-slate-200 p-5 mb-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-6">
             <div>
-                <p class="text-sm font-medium text-emerald-800">Semua jurnal hari ini sudah terisi tepat waktu</p>
-                <p class="text-xs text-emerald-600">Tidak ada keterlambatan</p>
+                <div class="text-xs font-medium text-slate-500">Siklus Blok Aktif</div>
+                <div class="flex items-baseline gap-2 mt-1">
+                    <span class="text-lg font-bold text-slate-900">Putaran {{ $config->active_cycle }}</span>
+                    <span class="text-xs text-slate-500">
+                        ({{ $config->start_date?->format('d M Y') }} – {{ $config->end_date?->format('d M Y') }})
+                    </span>
+                </div>
+            </div>
+
+            <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
+
+            <div>
+                <div class="text-xs font-medium text-slate-500">Status Pengelolaan Jadwal</div>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="inline-flex items-center gap-1.5 text-sm font-semibold {{ $config->is_schedule_locked ? 'text-red-600' : 'text-emerald-600' }}">
+                        <span class="w-2 h-2 rounded-full {{ $config->is_schedule_locked ? 'bg-red-600' : 'bg-emerald-600' }}"></span>
+                        {{ $config->is_schedule_locked ? 'Terkunci' : 'Terbuka' }}
+                    </span>
+                    <span class="text-xs text-slate-400">
+                        — {{ $config->is_schedule_locked ? 'Perubahan jadwal dinonaktifkan' : 'Jadwal dapat ditambah & diubah' }}
+                    </span>
+                </div>
             </div>
         </div>
-    @endif
 
-    {{-- Aksi cepat --}}
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 class="text-sm font-semibold text-slate-800">Ganti Siklus Blok</h3>
-            <p class="text-xs text-slate-500 mt-1 mb-4">
-                Aktif: <span class="font-medium text-blue-600">Putaran {{ $config->active_cycle }}</span><br>
-                Periode: {{ $config->start_date?->format('d M Y') }} – {{ $config->end_date?->format('d M Y') }}
-            </p>
+        <div class="flex flex-wrap items-center gap-2.5">
             @if($config->is_schedule_locked)
-                <button disabled class="w-full bg-slate-100 text-slate-400 text-sm font-medium py-2.5 rounded-lg cursor-not-allowed">
-                    Tidak bisa diubah (jadwal terkunci)
+                <button disabled class="px-4 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed">
+                    Ganti Putaran (Jadwal Terkunci)
                 </button>
             @else
-                <form action="{{ route('waka.toggle.cycle') }}" method="POST">
+                <form action="{{ route('waka.toggle.cycle') }}" method="POST"
+                      onsubmit="return confirm('Yakin ingin mengganti ke Putaran {{ $config->active_cycle == '1' ? '2' : '1' }}? History putaran saat ini akan disimpan.')">
                     @csrf
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2.5 rounded-lg transition">
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition">
                         Ubah ke Putaran {{ $config->active_cycle == '1' ? '2' : '1' }}
                     </button>
                 </form>
             @endif
-        </div>
 
-        <div class="bg-white rounded-xl border border-slate-200 p-5">
-            <h3 class="text-sm font-semibold text-slate-800">Lock / Unlock Jadwal</h3>
-            <p class="text-xs text-slate-500 mt-1 mb-4">
-                Status:
-                <span class="font-medium {{ $config->is_schedule_locked ? 'text-red-600' : 'text-emerald-600' }}">
-                    {{ $config->is_schedule_locked ? 'TERKUNCI' : 'TERBUKA' }}
-                </span>
-            </p>
             <form action="{{ route('waka.toggle.lock') }}" method="POST">
                 @csrf
                 <button type="submit"
-                        class="w-full text-sm font-medium py-2.5 rounded-lg text-white transition
-                        {{ $config->is_schedule_locked ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700' }}">
+                        class="px-4 py-2 rounded-lg text-xs font-semibold transition border
+                        {{ $config->is_schedule_locked
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300' }}">
                     {{ $config->is_schedule_locked ? 'Buka Kunci Jadwal' : 'Kunci Jadwal' }}
                 </button>
             </form>
         </div>
     </div>
 
-    {{-- Menu cepat --}}
-    <h2 class="text-sm font-semibold text-slate-700 mb-3">Akses Cepat</h2>
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <a href="{{ route('waka.schedules.index') }}"
-           class="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:bg-slate-50 transition text-center">
-            <div class="mx-auto w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center mb-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-                </svg>
+    {{-- 4 Kartu Statistik Utama --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {{-- Total Jadwal --}}
+        <div class="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Total Jadwal Aktif</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">
+                        {{ \App\Models\Schedule::where('cycle_type', $config->active_cycle)->count() }}
+                    </p>
+                </div>
+                <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                </div>
             </div>
-            <div class="text-sm font-medium text-slate-700">Jadwal</div>
-        </a>
-        <a href="{{ route('waka.journal.recap') }}"
-           class="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:bg-slate-50 transition text-center">
-            <div class="mx-auto w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center mb-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
-                </svg>
+            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="text-slate-400">Putaran {{ $config->active_cycle }}</span>
+                <a href="{{ route('waka.schedules.index') }}" class="text-blue-600 hover:underline font-medium">Lihat Jadwal →</a>
             </div>
-            <div class="text-sm font-medium text-slate-700">Jurnal</div>
-        </a>
-        <a href="{{ route('waka.cycle.history') }}"
-           class="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:bg-slate-50 transition text-center">
-            <div class="mx-auto w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center mb-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
+        </div>
+
+        {{-- Jurnal Hari Ini --}}
+        <div class="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Jurnal Terisi Hari Ini</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">{{ $todayJournalPercentage }}%</p>
+                </div>
+                <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
             </div>
-            <div class="text-sm font-medium text-slate-700">History</div>
-        </a>
-        <a href="{{ route('waka.master.users') }}"
-           class="bg-white rounded-xl border border-slate-200 p-4 hover:border-slate-300 hover:bg-slate-50 transition text-center">
-            <div class="mx-auto w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center mb-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
-                </svg>
+            <div class="mt-3">
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-emerald-500 rounded-full" style="width: {{ min(100, max(0, $todayJournalPercentage)) }}%"></div>
+                </div>
+                <p class="text-xs text-slate-400 mt-1.5">{{ $todayJournalCount }} dari {{ $todaySchedules->count() }} sesi terjadwal hari ini</p>
             </div>
-            <div class="text-sm font-medium text-slate-700">Pengguna</div>
-        </a>
+        </div>
+
+        {{-- Kehadiran Hari Ini --}}
+        <div class="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Kehadiran Siswa Hari Ini</p>
+                    <p class="text-2xl font-bold text-slate-900 mt-1">{{ $todayAttendancePercentage }}%</p>
+                </div>
+                <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-600 rounded-full" style="width: {{ min(100, max(0, $todayAttendancePercentage)) }}%"></div>
+                </div>
+                <p class="text-xs text-slate-400 mt-1.5">{{ $todayHadirCount }} hadir dari {{ $totalTargetStudents }} siswa terjadwal hari ini</p>
+            </div>
+        </div>
+
+        {{-- Jurnal Terlambat --}}
+        <div class="bg-white rounded-xl border border-slate-200 p-5 flex flex-col justify-between">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Jurnal Terlambat (&gt;30 mnt)</p>
+                    <p class="text-2xl font-bold {{ $lateJournals->count() > 0 ? 'text-amber-600' : 'text-slate-900' }} mt-1">
+                        {{ $lateJournals->count() }}
+                    </p>
+                </div>
+                <div class="w-9 h-9 rounded-lg {{ $lateJournals->count() > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500' }} flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span class="text-slate-400">{{ $lateJournals->count() > 0 ? 'Perlu tindak lanjut' : 'Semua tepat waktu' }}</span>
+                <a href="{{ route('waka.journal.recap') }}" class="text-blue-600 hover:underline font-medium">Rekap Jurnal →</a>
+            </div>
+        </div>
+    </div>
+
+    {{-- Tabel Pantauan Keterlambatan Jurnal Hari Ini --}}
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-semibold text-slate-800">Pantauan Keterlambatan Jurnal Hari Ini</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Daftar sesi mengajar hari ini yang belum mengisi jurnal lebih dari 30 menit.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 text-xs font-medium">
+                    {{ $lateJournals->count() }} sesi
+                </span>
+                <a href="{{ route('waka.journal.recap') }}"
+                   class="px-3 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition">
+                    Lihat Detail Rekap
+                </a>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto max-h-[440px] overflow-y-auto">
+            <table class="w-full text-sm text-left border-collapse">
+                <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500 sticky top-0 z-10">
+                    <tr>
+                        <th class="px-4 py-3 w-14 text-center">No</th>
+                        <th class="px-4 py-3">Pengajar</th>
+                        <th class="px-4 py-3">Mata Pelajaran</th>
+                        <th class="px-4 py-3 w-32">Kelas</th>
+                        <th class="px-4 py-3 w-32">Ruangan</th>
+                        <th class="px-4 py-3 w-36 text-right">Waktu Mengajar</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-slate-700">
+                    @forelse($lateJournals as $index => $item)
+                        <tr class="hover:bg-slate-50/80 transition">
+                            <td class="px-4 py-3 text-center text-xs text-slate-400">{{ $index + 1 }}</td>
+                            <td class="px-4 py-3 font-medium text-slate-800">{{ $item->teacher->fullname }}</td>
+                            <td class="px-4 py-3 text-slate-600">{{ $item->subject }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-800 text-xs font-medium">
+                                    {{ $item->class->class_name }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-600 text-xs">
+                                    {{ $item->room->room_name }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right text-xs font-medium text-slate-600 whitespace-nowrap">
+                                {{ substr($item->start_time, 0, 5) }} – {{ substr($item->end_time, 0, 5) }}
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-4 py-10 text-center text-slate-500 text-sm">
+                                Semua jurnal mengajar hari ini sudah terisi tepat waktu.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 @endsection

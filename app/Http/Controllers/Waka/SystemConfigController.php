@@ -62,24 +62,55 @@ class SystemConfigController extends Controller
 
     public function history(Request $request)
     {
+        $filters = $request->validate([
+            'history_id' => 'nullable|integer|exists:cycle_histories,id',
+            'tab' => 'nullable|in:presensi,jurnal',
+            'date' => 'nullable|date',
+            'class_id' => 'nullable|exists:classes,id',
+            'grade' => 'nullable|in:X,XI,XII',
+            'major' => 'nullable|string|max:20',
+            'section' => 'nullable|string|max:10',
+            'teacher_id' => 'nullable|exists:users,id',
+        ]);
         $histories = CycleHistory::with('closedBy')
             ->orderBy('created_at', 'desc')
             ->get();
 
         $config = SystemConfiguration::current();
 
-        $selectedId = $request->get('history_id', $histories->first()?->id);
+        $selectedId = $filters['history_id'] ?? $histories->first()?->id;
         $selected = $histories->firstWhere('id', $selectedId);
 
-        $tab = $request->get('tab', 'presensi');
+        $tab = $filters['tab'] ?? 'presensi';
 
         $classRecap = collect();
         $journals = collect();
+        $classes = Classes::orderBy('grade')->orderBy('major')->orderBy('section')->get();
+        $teachers = \App\Models\User::whereHas('role', fn ($query) => $query->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+            ->orderBy('fullname')
+            ->get(['id', 'fullname']);
+        $dates = collect();
 
         if ($selected) {
+            $cycleJournals = Journal::whereHas('schedule', fn ($query) => $query->where('cycle_type', $selected->cycle_type))
+                ->whereBetween('date', [$selected->start_date, $selected->end_date]);
+            $dates = (clone $cycleJournals)->distinct()->orderBy('date')->pluck('date')
+                ->map(fn ($date) => Carbon::parse($date)->toDateString())
+                ->unique()
+                ->values();
+
             $journals = Journal::with(['schedule.teacher', 'schedule.class'])
                 ->whereHas('schedule', fn($q) => $q->where('cycle_type', $selected->cycle_type))
                 ->whereBetween('date', [$selected->start_date, $selected->end_date])
+                ->when(isset($filters['date']), fn ($query) => $query->whereDate('date', $filters['date']))
+                ->whereHas('schedule', function ($query) use ($filters) {
+                    $query->when(isset($filters['teacher_id']), fn ($q) => $q->where('teacher_id', $filters['teacher_id']))
+                        ->when(isset($filters['class_id']), fn ($q) => $q->where('class_id', $filters['class_id']))
+                        ->whereHas('class', fn ($q) => $q
+                            ->when(isset($filters['grade']), fn ($classQuery) => $classQuery->where('grade', $filters['grade']))
+                            ->when(isset($filters['major']), fn ($classQuery) => $classQuery->where('major', $filters['major']))
+                            ->when(isset($filters['section']), fn ($classQuery) => $classQuery->where('section', $filters['section'])));
+                })
                 ->get();
 
             $classRecap = $journals
@@ -110,7 +141,7 @@ class SystemConfigController extends Controller
         }
 
         return view('waka.cycle-history', compact(
-            'histories', 'config', 'selected', 'tab', 'classRecap', 'journals'
+            'histories', 'config', 'selected', 'tab', 'classRecap', 'journals', 'classes', 'teachers', 'dates'
         ));
     }
 

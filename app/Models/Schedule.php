@@ -15,6 +15,7 @@ class Schedule extends Model
         'start_time',
         'end_time',
         'period_id',
+        'end_period_id',
         'cycle_type',
     ];
 
@@ -36,6 +37,11 @@ class Schedule extends Model
     public function period()
     {
         return $this->belongsTo(Period::class);
+    }
+
+    public function endPeriod()
+    {
+        return $this->belongsTo(Period::class, 'end_period_id');
     }
 
     public function journals()

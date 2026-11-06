@@ -22,7 +22,7 @@ class AttendanceController extends Controller
     {
         $journal = Journal::with('schedule')->findOrFail($journalId);
 
-        if ((! $request->user()->isGuru() && ! $request->user()->isWaliKelas()) ||
+        if ((! $request->user()->isGuru() && ! $request->user()->isWaliKelas() && ! $request->user()->isGuruBK()) ||
             (int) $journal->schedule->teacher_id !== (int) $request->user()->id) {
             return response()->json([
                 'success' => false,
@@ -56,7 +56,7 @@ class AttendanceController extends Controller
         }
 
         $attendance = Attendance::with('journal.schedule')->findOrFail($id);
-        if ((! $request->user()->isGuru() && ! $request->user()->isWaliKelas()) ||
+        if ((! $request->user()->isGuru() && ! $request->user()->isWaliKelas() && ! $request->user()->isGuruBK()) ||
             (int) $attendance->journal->schedule->teacher_id !== (int) $request->user()->id) {
             return response()->json([
                 'success' => false,
@@ -76,23 +76,157 @@ class AttendanceController extends Controller
     public function myAttendances(Request $request)
     {
         $user = $request->user();
+        if (! $user->isSiswa() && ! $user->isOrangTua()) {
+            return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
+        }
+
+        $validator = Validator::make($request->query(), [
+            'student_id' => 'sometimes|required|integer',
+        ]);
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+        $studentId = isset($validated['student_id']) ? (int) $validated['student_id'] : null;
+
+        $query = Attendance::query();
         if ($user->isSiswa()) {
-            $studentIds = [$user->id];
+            if ($studentId !== null && $studentId !== (int) $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda hanya dapat melihat riwayat presensi sendiri.',
+                ], 403);
+            }
+
+            $query->where('student_id', $user->id);
+        } else {
+            $childrenQuery = User::where('parent_id', $user->id)
+                ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'));
+
+            if ($studentId !== null) {
+                if (! (clone $childrenQuery)->whereKey($studentId)->exists()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Siswa tidak terhubung dengan akun Orang Tua ini.',
+                    ], 403);
+                }
+
+                $query->where('student_id', $studentId);
+            } else {
+                $query->whereIn('student_id', $childrenQuery->select('id'));
+            }
+        }
+
+        $attendances = $query->with([
+            'journal.schedule:id,subject,day_of_week,class_id,room_id',
+            'student:id,fullname,class_id',
+            'student.class:id,class_name',
+        ])
+            ->orderBy('date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+        $data = $attendances->map(function (Attendance $attendance) {
+            $record = $attendance->toArray();
+            $record['date'] = $attendance->date?->format('Y-m-d');
+            if ($attendance->journal) {
+                $record['journal']['date'] = $attendance->journal->date?->format('Y-m-d');
+            }
+
+            return $record;
+        });
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function todaySummary(Request $request)
+    {
+        $user = $request->user();
+        $today = Carbon::now('Asia/Jakarta')->toDateString();
+
+        if ($user->isSiswa()) {
+            $students = collect([$user]);
         } elseif ($user->isOrangTua()) {
-            $studentIds = User::where('parent_id', $user->id)->pluck('id');
+            $studentsQuery = User::where('parent_id', $user->id)
+                ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'));
+
+            if ($request->filled('student_id')) {
+                $studentsQuery->whereKey($request->validate([
+                    'student_id' => 'required|integer',
+                ])['student_id']);
+            }
+
+            $students = $studentsQuery->orderBy('fullname')->get();
+            if ($request->filled('student_id') && $students->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Siswa tidak terhubung dengan akun Orang Tua ini.',
+                ], 403);
+            }
         } else {
             return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
 
-        $attendances = Attendance::with([
-            'journal.schedule:id,subject,day_of_week,class_id,room_id',
-            'student:id,fullname',
-        ])
-            ->whereIn('student_id', $studentIds)
-            ->orderBy('date', 'desc')
-            ->get();
+        $data = $students->map(function (User $student) use ($today) {
+            $counts = Attendance::where('student_id', $student->id)
+                ->whereDate('date', $today)
+                ->selectRaw('status, COUNT(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
+            $total = (int) $counts->sum();
 
-        return response()->json(['success' => true, 'data' => $attendances]);
+            return [
+                'student' => [
+                    'id' => $student->id,
+                    'fullname' => $student->fullname,
+                    'nis' => $student->nis,
+                    'class_id' => $student->class_id,
+                    'class' => $student->class?->class_name,
+                ],
+                'date' => $today,
+                'total_sessions' => $total,
+                'hadir' => (int) ($counts['Hadir'] ?? 0),
+                'izin' => (int) ($counts['Izin'] ?? 0),
+                'sakit' => (int) ($counts['Sakit'] ?? 0),
+                'alpha' => (int) ($counts['Alpha'] ?? 0),
+                'present_percentage' => $total === 0 ? 0 : round((($counts['Hadir'] ?? 0) / $total) * 100, 2),
+            ];
+        })->values();
+
+        return response()->json(['success' => true, 'date' => $today, 'data' => $data]);
+    }
+
+    public function reportFilters(Request $request)
+    {
+        $user = $request->user();
+        if (! $user->isWaliKelas() && ! $user->isGuruBK() && ! $user->hasPrimaryRole('Waka Kurikulum') && ! $user->isKepalaSekolah()) {
+            return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
+        }
+
+        $classes = \App\Models\Classes::query()
+            ->when($user->isWaliKelas(), fn ($query) => $query->whereKey($user->class_id))
+            ->orderBy('grade')->orderBy('major')->orderBy('section')
+            ->get(['id', 'class_name', 'grade', 'major', 'section']);
+        $teachers = User::whereHas('role', fn ($query) => $query->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
+            ->when($user->isWaliKelas(), fn ($query) => $query->whereHas(
+                'schedules',
+                fn ($schedule) => $schedule->where('class_id', $user->class_id)
+            ))
+            ->orderBy('fullname')
+            ->get(['id', 'fullname']);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'classes' => $classes,
+                'grades' => ['X', 'XI', 'XII'],
+                'teachers' => $teachers,
+            ],
+        ]);
     }
 
     public function report(Request $request)
@@ -105,6 +239,10 @@ class AttendanceController extends Controller
         $validator = Validator::make($request->all(), [
             'date' => 'nullable|date',
             'class_id' => 'nullable|exists:classes,id',
+            'grade' => 'nullable|in:X,XI,XII',
+            'major' => 'nullable|string|max:20',
+            'section' => 'nullable|string|max:10',
+            'teacher_id' => 'nullable|exists:users,id',
             'from_date' => 'nullable|required_with:to_date|date',
             'to_date' => 'nullable|required_with:from_date|date|after_or_equal:from_date',
             'month' => 'nullable|date_format:Y-m',
@@ -161,7 +299,7 @@ class AttendanceController extends Controller
             'student:id,fullname',
             'journal:id,schedule_id,date',
             'journal.schedule:id,subject,class_id,teacher_id,period_id',
-            'journal.schedule.class:id,class_name',
+            'journal.schedule.class:id,class_name,grade,major,section',
             'journal.schedule.class.homeroomTeacher:id,fullname,class_id',
             'journal.schedule.teacher:id,fullname',
             'journal.schedule.period:id,period_number,label',
@@ -171,9 +309,16 @@ class AttendanceController extends Controller
 
         if ($user->isWaliKelas()) {
             $query->whereHas('journal.schedule', fn ($schedule) => $schedule->where('class_id', $user->class_id));
-        } elseif (isset($validated['class_id'])) {
-            $query->whereHas('journal.schedule', fn ($schedule) => $schedule->where('class_id', $validated['class_id']));
         }
+
+        $query->whereHas('journal.schedule', function ($schedule) use ($validated, $user) {
+            $schedule->when(isset($validated['class_id']), fn ($q) => $q->where('class_id', $validated['class_id']))
+                ->when(isset($validated['teacher_id']), fn ($q) => $q->where('teacher_id', $validated['teacher_id']))
+                ->whereHas('class', fn ($class) => $class
+                    ->when(isset($validated['grade']), fn ($q) => $q->where('grade', $validated['grade']))
+                    ->when(isset($validated['major']), fn ($q) => $q->where('major', $validated['major']))
+                    ->when(isset($validated['section']), fn ($q) => $q->where('section', $validated['section'])));
+        });
 
         if (isset($validated['period_id'])) {
             $query->whereHas('journal.schedule', fn ($schedule) => $schedule->where('period_id', $validated['period_id']));

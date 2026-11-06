@@ -52,7 +52,12 @@ class JournalAttendanceApiTest extends TestCase
             $this->roles[$name] = Role::create(['role_name' => $name]);
         }
 
-        $this->class = Classes::create(['class_name' => 'X RPL 1']);
+        $this->class = Classes::create([
+            'class_name' => 'X RPL 1',
+            'grade' => 'X',
+            'major' => 'RPL',
+            'section' => '1',
+        ]);
         $this->room = Room::create(['room_name' => 'Ruang 1']);
         $this->teacher = $this->makeUser('Guru', 'guru', 'Guru');
         $this->wali = $this->makeUser('Wali', 'wali', 'Wali Kelas', $this->class->id);
@@ -411,6 +416,24 @@ class JournalAttendanceApiTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_attendance_report_supports_grade_rombel_teacher_filters_and_filter_options(): void
+    {
+        $this->createLegacyJournal($this->schedule, '2026-10-26');
+
+        $this->actingAs($this->bk, 'sanctum')
+            ->getJson('/api/attendances/report?date=2026-10-26&grade=X&major=RPL&section=1&teacher_id='.$this->teacher->id)
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.journal.schedule.class.grade', 'X')
+            ->assertJsonPath('data.0.journal.schedule.class.section', '1');
+
+        $this->actingAs($this->bk, 'sanctum')
+            ->getJson('/api/attendances/report/filters')
+            ->assertOk()
+            ->assertJsonPath('data.classes.0.grade', 'X')
+            ->assertJsonFragment(['id' => $this->teacher->id, 'fullname' => $this->teacher->fullname]);
+    }
+
     public function test_bk_report_succeeds_for_a_class_without_a_homeroom_teacher(): void
     {
         $classWithoutWali = Classes::create(['class_name' => 'X RPL 2']);
@@ -459,6 +482,135 @@ class JournalAttendanceApiTest extends TestCase
                 'alpha_consecutive_days' => 4,
                 'max_alpha_consecutive_days' => 4,
                 'repeated_alpha' => true,
+            ]);
+    }
+
+    public function test_student_attendance_history_returns_own_records_with_required_data_in_latest_order(): void
+    {
+        $records = [];
+        foreach ([
+            ['2026-10-23', 'Hadir'],
+            ['2026-10-24', 'Izin'],
+            ['2026-10-25', 'Sakit'],
+            ['2026-10-26', 'Alpha'],
+        ] as [$date, $status]) {
+            $journal = $this->createLegacyJournalForStudent($this->schedule, $date, $this->student);
+            $attendance = Attendance::where('journal_id', $journal->id)
+                ->where('student_id', $this->student->id)
+                ->firstOrFail();
+            $attendance->update(['status' => $status]);
+            $records[] = [$attendance, $journal];
+        }
+        $this->createLegacyJournalForStudent(
+            $this->makeSchedule('Senin'),
+            '2026-10-26',
+            $this->secondStudent
+        );
+
+        $response = $this->actingAs($this->student, 'sanctum')
+            ->getJson('/api/attendances/my?student_id='.$this->student->id)
+            ->assertOk();
+
+        $response
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.0.id', $records[3][0]->id)
+            ->assertJsonPath('data.0.date', '2026-10-26')
+            ->assertJsonPath('data.0.status', 'Alpha')
+            ->assertJsonPath('data.0.student.id', $this->student->id)
+            ->assertJsonPath('data.0.student.fullname', $this->student->fullname)
+            ->assertJsonPath('data.0.student.class.class_name', $this->class->class_name)
+            ->assertJsonPath('data.0.journal.date', '2026-10-26')
+            ->assertJsonPath('data.0.journal.schedule.subject', $this->schedule->subject)
+            ->assertJsonPath('data.1.status', 'Sakit')
+            ->assertJsonPath('data.2.status', 'Izin')
+            ->assertJsonPath('data.3.status', 'Hadir');
+        $this->assertSame(
+            [$this->student->id],
+            array_values(array_unique(array_column(array_column($response->json('data'), 'student'), 'id')))
+        );
+    }
+
+    public function test_student_cannot_request_another_students_attendance_history(): void
+    {
+        $journal = $this->createLegacyJournalForStudent($this->schedule, '2026-10-26', $this->secondStudent);
+
+        $this->actingAs($this->student, 'sanctum')
+            ->getJson('/api/attendances/my?student_id='.$this->secondStudent->id)
+            ->assertForbidden()
+            ->assertExactJson([
+                'success' => false,
+                'message' => 'Anda hanya dapat melihat riwayat presensi sendiri.',
+            ]);
+
+        $this->assertSame(1, Attendance::where('journal_id', $journal->id)->count());
+    }
+
+    public function test_parent_can_read_attendance_for_a_linked_child(): void
+    {
+        $parent = $this->makeUser('Orang Tua', 'ortu_history', 'Orang Tua');
+        $this->student->update(['parent_id' => $parent->id]);
+        $journal = $this->createLegacyJournalForStudent($this->schedule, '2026-10-26', $this->student);
+
+        $this->actingAs($parent, 'sanctum')
+            ->getJson('/api/attendances/my?student_id='.$this->student->id)
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', Attendance::where('journal_id', $journal->id)->value('id'))
+            ->assertJsonPath('data.0.student.id', $this->student->id)
+            ->assertJsonPath('data.0.journal.date', '2026-10-26');
+    }
+
+    public function test_parent_without_student_id_sees_only_attendance_for_linked_children(): void
+    {
+        $parent = $this->makeUser('Orang Tua', 'ortu_all_children_history', 'Orang Tua');
+        $this->student->update(['parent_id' => $parent->id]);
+        $this->createLegacyJournalForStudent($this->schedule, '2026-10-26', $this->student);
+        $this->createLegacyJournalForStudent($this->schedule, '2026-10-25', $this->secondStudent);
+
+        $this->actingAs($parent, 'sanctum')
+            ->getJson('/api/attendances/my')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.student.id', $this->student->id);
+    }
+
+    public function test_parent_cannot_read_attendance_for_an_unlinked_student(): void
+    {
+        $parent = $this->makeUser('Orang Tua', 'ortu_other_history', 'Orang Tua');
+        $this->createLegacyJournalForStudent($this->schedule, '2026-10-26', $this->secondStudent);
+
+        $this->actingAs($parent, 'sanctum')
+            ->getJson('/api/attendances/my?student_id='.$this->secondStudent->id)
+            ->assertForbidden()
+            ->assertExactJson([
+                'success' => false,
+                'message' => 'Siswa tidak terhubung dengan akun Orang Tua ini.',
+            ]);
+    }
+
+    public function test_attendance_history_without_records_is_empty_not_alpha(): void
+    {
+        $this->actingAs($this->student, 'sanctum')
+            ->getJson('/api/attendances/my')
+            ->assertOk()
+            ->assertExactJson([
+                'success' => true,
+                'data' => [],
+            ]);
+
+        $this->assertSame(0, Attendance::count());
+    }
+
+    public function test_other_roles_cannot_read_my_attendance_history(): void
+    {
+        $this->actingAs($this->teacher, 'sanctum')
+            ->getJson('/api/attendances/my')
+            ->assertForbidden()
+            ->assertExactJson([
+                'success' => false,
+                'message' => 'Akses ditolak',
             ]);
     }
 

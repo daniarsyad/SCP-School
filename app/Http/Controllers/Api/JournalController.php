@@ -45,9 +45,8 @@ class JournalController extends Controller
         $user = $request->user();
         $schedule = Schedule::with('class')->findOrFail($data['schedule_id']);
 
-        if ((! $user->isGuru() && ! $user->isWaliKelas()) ||
-            (int) $schedule->teacher_id !== (int) $user->id ||
-            ($user->isWaliKelas() && (int) $schedule->class_id !== (int) $user->class_id)) {
+        if ((! $user->isGuru() && ! $user->isWaliKelas() && ! $user->isGuruBK()) ||
+            (int) $schedule->teacher_id !== (int) $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak berhak mengisi jurnal untuk jadwal ini.',
@@ -65,6 +64,37 @@ class JournalController extends Controller
             return $this->validationError([
                 'date' => ['Tanggal tidak sesuai dengan jadwal atau periode KBM yang aktif.'],
             ]);
+        }
+
+        // Anti-curang: Cegah guru mengisi jurnal sebelum jam pelajaran dimulai
+        $now = Carbon::now();
+        $nowTime = $now->format('H:i:s');
+        $isToday = Carbon::parse($date)->isToday();
+
+        if ($isToday && $schedule->start_time && $nowTime < $schedule->start_time) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Jurnal belum dapat diisi karena jam pelajaran belum dimulai (Pukul ' . substr($schedule->start_time, 0, 5) . ').',
+            ], 422);
+        }
+
+        // Cek duplikasi jurnal untuk jadwal dan tanggal yang sama
+        $alreadyExists = Journal::where('schedule_id', $schedule->id)
+            ->whereDate('date', $date)
+            ->exists();
+
+        if ($alreadyExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Jurnal untuk jadwal ini pada hari ini sudah pernah diisi.',
+            ], 409);
+        }
+
+        // Hitung menit keterlambatan (jika diisi setelah jam pelajaran selesai)
+        $lateMinutes = 0;
+        if ($isToday && $schedule->end_time && $nowTime > $schedule->end_time) {
+            $endTime = Carbon::createFromTimeString($schedule->end_time);
+            $lateMinutes = (int) $now->diffInMinutes($endTime);
         }
 
         $students = User::where('class_id', $schedule->class_id)
@@ -125,14 +155,14 @@ class JournalController extends Controller
                 $photo,
                 $idempotencyKey,
                 $requestHash,
+                $lateMinutes,
                 $leaveSynchronizer,
                 &$photoPath
             ) {
                 $lockedSchedule = Schedule::whereKey($schedule->id)->lockForUpdate()->firstOrFail();
 
                 if ((int) $lockedSchedule->teacher_id !== (int) $user->id ||
-                    (int) $lockedSchedule->class_id !== (int) $schedule->class_id ||
-                    ($user->isWaliKelas() && (int) $lockedSchedule->class_id !== (int) $user->class_id)) {
+                    (int) $lockedSchedule->class_id !== (int) $schedule->class_id) {
                     return ['forbidden' => true];
                 }
 
@@ -177,6 +207,7 @@ class JournalController extends Controller
                     'topic_description' => $data['topic_description'],
                     'activity_notes' => $data['activity_notes'] ?? null,
                     'photo_path' => $photoPath,
+                    'late_minutes' => $lateMinutes,
                     'created_at' => now(),
                     'idempotency_key' => $idempotencyKey,
                     'idempotency_hash' => $idempotencyKey === null ? null : $requestHash,
@@ -286,26 +317,43 @@ class JournalController extends Controller
     public function monitor(Request $request)
     {
         $user = $request->user();
-        if (! $user->isWaka() && ! $user->isKepalaSekolah()) {
+        if (! $user->hasPrimaryRole('Waka Kurikulum') && ! $user->isKepalaSekolah()) {
             return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
 
         $validated = $request->validate([
             'class_id' => 'sometimes|integer|exists:classes,id',
+            'grade' => 'sometimes|in:X,XI,XII',
+            'major' => 'sometimes|string|max:20',
+            'section' => 'sometimes|string|max:10',
+            'teacher_id' => 'sometimes|integer|exists:users,id',
+            'date' => 'sometimes|date',
             'from_date' => 'sometimes|date',
             'to_date' => 'sometimes|date|after_or_equal:from_date',
         ]);
+        if (isset($validated['date']) && (isset($validated['from_date']) || isset($validated['to_date']))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gunakan date atau from_date/to_date, tidak keduanya.',
+            ], 422);
+        }
 
         $query = Schedule::with([
-            'class:id,class_name',
+            'class:id,class_name,grade,major,section',
             'teacher:id,fullname',
             'journals' => function ($journalQuery) use ($validated) {
                 $journalQuery->withCount('attendances')
+                    ->when(isset($validated['date']), fn ($q) => $q->whereDate('date', $validated['date']))
                     ->when(isset($validated['from_date']), fn ($q) => $q->whereDate('date', '>=', $validated['from_date']))
                     ->when(isset($validated['to_date']), fn ($q) => $q->whereDate('date', '<=', $validated['to_date']));
             },
         ])
             ->when(isset($validated['class_id']), fn ($q) => $q->where('class_id', $validated['class_id']))
+            ->when(isset($validated['teacher_id']), fn ($q) => $q->where('teacher_id', $validated['teacher_id']))
+            ->whereHas('class', fn ($class) => $class
+                ->when(isset($validated['grade']), fn ($q) => $q->where('grade', $validated['grade']))
+                ->when(isset($validated['major']), fn ($q) => $q->where('major', $validated['major']))
+                ->when(isset($validated['section']), fn ($q) => $q->where('section', $validated['section'])))
             ->orderBy('class_id')
             ->orderBy('day_of_week')
             ->orderBy('start_time');

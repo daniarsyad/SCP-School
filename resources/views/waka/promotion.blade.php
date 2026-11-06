@@ -3,45 +3,47 @@
 @section('title', 'Kenaikan Kelas - SCP')
 
 @section('content')
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold">Kenaikan Kelas & Kelulusan Siswa</h1>
-        <p class="text-gray-500 text-sm">Pilih kelas asal, lihat siswa, lalu naikkan ke kelas tujuan atau luluskan.</p>
+    <div class="mb-5">
+        <h1 class="text-xl font-semibold text-slate-900">Kenaikan Kelas & Kelulusan Siswa</h1>
+        <p class="text-slate-500 text-sm mt-0.5">Pilih kelas asal, pilih siswa, lalu naikkan ke kelas tujuan atau luluskan menjadi alumni.</p>
     </div>
 
     {{-- Ringkasan --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div class="bg-white rounded-xl border p-5">
-            <p class="text-sm text-gray-500">Total Siswa Aktif</p>
-            <p class="text-3xl font-bold text-blue-600 mt-1">{{ $stats['total_siswa'] }}</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-xs text-slate-500">Total Siswa Aktif</p>
+            <p class="text-xl font-semibold text-slate-900 mt-1">{{ $stats['total_siswa'] }}</p>
         </div>
-        <div class="bg-white rounded-xl border p-5">
-            <p class="text-sm text-gray-500">Kelas Kosong (Siap Diisi)</p>
-            <p class="text-3xl font-bold text-blue-600 mt-1">{{ $stats['kelas_kosong'] }} / {{ $stats['total_kelas'] }}</p>
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-xs text-slate-500">Kelas Kosong (Siap Diisi)</p>
+            <p class="text-xl font-semibold text-slate-900 mt-1">{{ $stats['kelas_kosong'] }} <span class="text-xs font-normal text-slate-400">dari {{ $stats['total_kelas'] }} kelas</span></p>
         </div>
-        <div class="bg-white rounded-xl border p-5">
-            <p class="text-sm text-gray-500">Kelas Terisi Siswa</p>
-            <p class="text-3xl font-bold text-blue-600 mt-1">{{ $stats['kelas_terisi'] }}</p>
+        <div class="bg-white rounded-lg border border-slate-200 p-4">
+            <p class="text-xs text-slate-500">Kelas Terisi Siswa</p>
+            <p class="text-xl font-semibold text-slate-900 mt-1">{{ $stats['kelas_terisi'] }}</p>
         </div>
     </div>
 
     {{-- Alur --}}
-    <div class="bg-white rounded-xl border p-5 mb-6">
-        <h2 class="font-semibold mb-2">Alur & Prosedur Kenaikan Kelas</h2>
-        <ul class="text-sm text-gray-600 space-y-1 list-disc list-inside">
-            <li><strong>Langkah 1 (Tingkat XII):</strong> Luluskan siswa kelas XII terlebih dahulu. Data siswa yang lulus tetap tersimpan di database (status Alumni), sehingga kelas XII menjadi kosong.</li>
-            <li><strong>Langkah 2 (Tingkat XI → XII):</strong> Setelah kelas XII kosong, siswa kelas XI dapat dinaikkan ke kelas XII.</li>
-            <li><strong>Langkah 3 (Tingkat X → XI):</strong> Setelah kelas XI kosong, siswa kelas X dapat dinaikkan ke kelas XI.</li>
-            <li class="text-red-600"><strong>Catatan Validasi:</strong> Kelas tujuan HARUS KOSONG (0 siswa aktif). Sistem akan menolak kenaikan apabila kelas tujuan masih terisi.</li>
-        </ul>
+    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-5">
+        <h2 class="text-sm font-semibold text-slate-800 mb-2">Urutan Prosedur Kenaikan Kelas</h2>
+        <ol class="text-xs text-slate-600 space-y-1 list-decimal list-inside">
+            <li><span class="font-medium text-slate-800">Tingkat XII:</span> Luluskan siswa kelas XII terlebih dahulu menjadi Alumni agar kelas XII kosong.</li>
+            <li><span class="font-medium text-slate-800">Tingkat XI → XII:</span> Setelah kelas XII kosong, naikkan siswa kelas XI ke kelas XII.</li>
+            <li><span class="font-medium text-slate-800">Tingkat X → XI:</span> Setelah kelas XI kosong, naikkan siswa kelas X ke kelas XI.</li>
+        </ol>
+        <p class="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
+            Catatan: Kelas tujuan harus kosong (0 siswa aktif) sebelum proses kenaikan dijalankan.
+        </p>
     </div>
 
     {{-- Filter Kelas Asal --}}
-    <div class="bg-white rounded-xl border p-5 mb-6">
-        <form method="GET" class="flex flex-wrap items-end gap-4">
-            <div class="flex-1 min-w-[200px]">
-                <label class="block text-sm font-medium mb-1">Pilih Kelas Asal Siswa</label>
-                <select name="class_id" class="w-full border rounded-lg px-3 py-2 text-sm" onchange="this.form.submit()">
-                    <option value="">-- Pilih Kelas Asal yang Akan Diproses --</option>
+    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-5">
+        <form method="GET" class="flex flex-wrap items-end gap-3">
+            <div class="w-full sm:w-80">
+                <label class="block text-xs font-medium text-slate-600 mb-1">Pilih Kelas Asal Siswa</label>
+                <select name="class_id" class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white focus:border-slate-500 focus:outline-none">
+                    <option value="">-- Pilih Kelas Asal --</option>
                     @foreach($classes as $c)
                         <option value="{{ $c->id }}" {{ request('class_id') == $c->id ? 'selected' : '' }}>
                             {{ $c->class_name }}
@@ -49,77 +51,94 @@
                     @endforeach
                 </select>
             </div>
+            <div class="flex items-center gap-2">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition">
+                    Terapkan Filter
+                </button>
+                @if(request('class_id'))
+                    <a href="{{ route('waka.promotion') }}" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-1.5 rounded-md text-sm font-medium transition">
+                        Reset
+                    </a>
+                @endif
+            </div>
         </form>
     </div>
 
     @if($selectedClass)
-    <div class="bg-white rounded-xl border overflow-hidden mb-6">
-        <div class="px-6 py-4 border-b">
-            <h2 class="font-semibold">Siswa {{ $selectedClass->class_name }}</h2>
-            <p class="text-sm text-gray-500">{{ $students->count() }} siswa</p>
+        <div class="bg-white rounded-lg border border-slate-200 overflow-hidden mb-5">
+            <form action="{{ route('waka.promotion.process') }}" method="POST">
+                @csrf
+                <input type="hidden" name="class_id" value="{{ $selectedClass->id }}">
+
+                <div class="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-800">Daftar Siswa Kelas {{ $selectedClass->class_name }}</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            {{ $students->count() }} siswa terdaftar ·
+                            @if($selectedClass->grade === 'XII')
+                                Akan diluluskan menjadi <strong class="text-slate-700">Alumni</strong>
+                            @else
+                                @php
+                                    $nextGrade = $selectedClass->grade === 'X' ? 'XI' : 'XII';
+                                    $targetName = $nextGrade . ' ' . $selectedClass->major . ' ' . $selectedClass->section;
+                                @endphp
+                                Kelas tujuan: <strong class="text-slate-700">{{ $targetName }}</strong>
+                            @endif
+                        </p>
+                    </div>
+
+                    @if($selectedClass->grade === 'XII')
+                        <button type="submit" name="graduate" value="1"
+                                class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-md text-xs font-medium transition"
+                                onclick="return confirm('Yakin luluskan siswa terpilih menjadi Alumni?')">
+                            Luluskan Siswa Terpilih
+                        </button>
+                    @else
+                        <button type="submit"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-xs font-medium transition">
+                            Proses Kenaikan Kelas
+                        </button>
+                    @endif
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3 w-12 text-center">
+                                    <input type="checkbox" id="checkAll" class="rounded border-slate-300" onclick="document.querySelectorAll('.student-check').forEach(c => c.checked = this.checked)">
+                                </th>
+                                <th class="px-4 py-3 w-12 text-center">No</th>
+                                <th class="px-4 py-3 w-40">NIS</th>
+                                <th class="px-4 py-3">Nama Siswa</th>
+                                <th class="px-4 py-3">Username</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 text-slate-700">
+                            @forelse($students as $index => $student)
+                                <tr class="hover:bg-slate-50/70">
+                                    <td class="px-4 py-3 text-center">
+                                        <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-check rounded border-slate-300">
+                                    </td>
+                                    <td class="px-4 py-3 text-center text-xs text-slate-400">{{ $index + 1 }}</td>
+                                    <td class="px-4 py-3 text-xs text-slate-600">{{ $student->nis ?? '-' }}</td>
+                                    <td class="px-4 py-3 font-medium text-slate-800">{{ $student->fullname }}</td>
+                                    <td class="px-4 py-3 text-xs text-slate-600">{{ $student->username }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-10 text-center text-slate-500">Tidak ada siswa aktif di kelas ini.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </form>
         </div>
-
-        <form action="{{ route('waka.promotion.process') }}" method="POST">
-            @csrf
-            <input type="hidden" name="class_id" value="{{ $selectedClass->id }}">
-
-            <div class="px-6 py-4 border-b flex flex-wrap items-center gap-3">
-                @if($selectedClass->grade === 'XII')
-                    <span class="text-sm text-gray-600">Kelas XII → akan diluluskan menjadi Alumni</span>
-                    <button type="submit" name="graduate" value="1"
-                            class="ml-auto bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm"
-                            onclick="return confirm('Yakin luluskan siswa terpilih menjadi Alumni?')">
-                        Luluskan (Alumni)
-                    </button>
-                @else
-                    @php
-                        $nextGrade = $selectedClass->grade === 'X' ? 'XI' : 'XII';
-                        $targetName = $nextGrade . ' ' . $selectedClass->major . ' ' . $selectedClass->section;
-                    @endphp
-                    <span class="text-sm text-gray-600">
-                        Akan naik ke: <strong>{{ $targetName }}</strong>
-                    </span>
-                    <button type="submit"
-                            class="ml-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
-                        Proses Kenaikan
-                    </button>
-                @endif
-            </div>
-
-            <table class="w-full text-sm">
-                <thead class="bg-gray-50 text-gray-600">
-                    <tr>
-                        <th class="px-6 py-3 text-left w-10">
-                            <input type="checkbox" id="checkAll" onclick="document.querySelectorAll('.student-check').forEach(c => c.checked = this.checked)">
-                        </th>
-                        <th class="px-6 py-3 text-left font-medium">No</th>
-                        <th class="px-6 py-3 text-left font-medium">Nama Siswa</th>
-                        <th class="px-6 py-3 text-left font-medium">Username</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y">
-                    @forelse($students as $index => $student)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-3">
-                                <input type="checkbox" name="student_ids[]" value="{{ $student->id }}" class="student-check">
-                            </td>
-                            <td class="px-6 py-3">{{ $index + 1 }}</td>
-                            <td class="px-6 py-3 font-medium">{{ $student->fullname }}</td>
-                            <td class="px-6 py-3 text-gray-600">{{ $student->username }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="px-6 py-10 text-center text-gray-500">Tidak ada siswa di kelas ini</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </form>
-    </div>
-@else
-        <div class="bg-white rounded-xl border p-10 text-center text-gray-500">
-            <p class="font-medium">Silakan Pilih Kelas Asal Terlebih Dahulu</p>
-            <p class="text-sm mt-1">Pilih salah satu kelas melalui menu dropdown di atas untuk memulai proses kenaikan atau kelulusan siswa.</p>
+    @else
+        <div class="bg-white rounded-lg border border-slate-200 p-10 text-center text-slate-500">
+            <p class="text-sm font-medium text-slate-700">Pilih Kelas Asal Terlebih Dahulu</p>
+            <p class="text-xs text-slate-500 mt-1">Pilih salah satu kelas melalui pilihan di atas untuk menampilkan daftar siswa.</p>
         </div>
     @endif
 @endsection

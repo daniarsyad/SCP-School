@@ -24,6 +24,11 @@ class Classes extends Model
             ->whereHas('role', fn ($query) => $query->where('role_name', 'Wali Kelas'));
     }
 
+    public function counselingTeachers()
+    {
+        return $this->belongsToMany(User::class, 'guru_bk_classes', 'class_id', 'user_id');
+    }
+
     public function students()
     {
         return $this->hasMany(User::class, 'class_id')

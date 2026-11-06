@@ -19,6 +19,7 @@ class Journal extends Model
         'topic_description',
         'activity_notes',
         'photo_path',
+        'late_minutes',
         'created_at',
         'idempotency_key',
         'idempotency_hash',
@@ -26,6 +27,7 @@ class Journal extends Model
 
     protected $casts = [
         'date' => 'date',
+        'late_minutes' => 'integer',
         'created_at' => 'datetime',
     ];
 

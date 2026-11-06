@@ -20,6 +20,7 @@ class WakaScheduleImportTest extends TestCase
     use RefreshDatabase;
 
     private User $waka;
+
     private User $teacher;
 
     protected function setUp(): void
@@ -77,6 +78,32 @@ class WakaScheduleImportTest extends TestCase
         ]);
     }
 
+    public function test_guru_bk_can_be_imported_for_bk_without_a_subject_on_the_user_profile(): void
+    {
+        $bkRole = Role::create(['role_name' => 'Guru BK']);
+        $bkTeacher = $this->makeUser('Guru BK', 'guru.bk', $bkRole);
+
+        $response = $this->actingAs($this->waka)->post(route('waka.schedules.import'), [
+            'file' => $this->csvFile([
+                ['1', 'Guru BK', 'X RPL 1', 'Ruang 1', 'BK', 'Senin', '08:00', '08:35'],
+                ['2', 'Guru BK', 'X RPL 1', 'Ruang 1', 'Bimbingan dan Konseling', 'Senin', '08:00', '08:35'],
+            ]),
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', '2 jadwal berhasil diimpor.');
+        $this->assertDatabaseHas('schedules', [
+            'teacher_id' => $bkTeacher->id,
+            'subject' => 'BK',
+            'cycle_type' => '1',
+        ]);
+        $this->assertDatabaseHas('schedules', [
+            'teacher_id' => $bkTeacher->id,
+            'subject' => 'Bimbingan dan Konseling',
+            'cycle_type' => '2',
+        ]);
+    }
+
     public function test_it_serves_an_excel_import_template(): void
     {
         $response = $this->actingAs($this->waka)
@@ -127,7 +154,14 @@ class WakaScheduleImportTest extends TestCase
             'Role',
             'Kelas',
             'Mata Pelajaran',
-        ], $spreadsheet->getActiveSheet()->rangeToArray('A1:G1')[0]);
+            'NIS',
+            'NIS Siswa (untuk Orang Tua)',
+            'NIP',
+            'Password',
+        ], $spreadsheet->getActiveSheet()->rangeToArray('A1:K1')[0]);
+        $this->assertSame('20260001', $spreadsheet->getActiveSheet()->getCell('I4')->getValue());
+        $this->assertSame('20260001', $spreadsheet->getActiveSheet()->getCell('H3')->getValue());
+        $this->assertSame('1987654321', $spreadsheet->getActiveSheet()->getCell('J2')->getValue());
 
         ob_start();
         $response->baseResponse->sendContent();
@@ -145,8 +179,7 @@ class WakaScheduleImportTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', fn (string $message) =>
-            str_contains($message, 'tidak ada dalam daftar pengguna')
+        $response->assertSessionHas('error', fn (string $message) => str_contains($message, 'tidak ada dalam daftar pengguna')
         );
         $this->assertSame(0, Schedule::count());
     }
@@ -160,8 +193,7 @@ class WakaScheduleImportTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', fn (string $message) =>
-            str_contains($message, 'Baris 2')
+        $response->assertSessionHas('error', fn (string $message) => str_contains($message, 'Baris 2')
             && str_contains($message, 'Kolom Pengajar / Mata Pelajaran')
             && str_contains($message, 'mengajar "Matematika", bukan "Fisika"')
         );
@@ -182,8 +214,7 @@ class WakaScheduleImportTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', fn (string $message) =>
-            str_contains($message, 'Kolom Pengajar / Mata Pelajaran')
+        $response->assertSessionHas('error', fn (string $message) => str_contains($message, 'Kolom Pengajar / Mata Pelajaran')
             && str_contains($message, 'mengajar "Matematika", bukan "Fisika"')
         );
         $this->assertSame(0, Schedule::count());
@@ -199,8 +230,7 @@ class WakaScheduleImportTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', fn (string $message) =>
-            str_contains($message, 'Baris 3')
+        $response->assertSessionHas('error', fn (string $message) => str_contains($message, 'Baris 3')
             && str_contains($message, 'bentrok dengan jadwal pada baris 2')
         );
         $this->assertSame(0, Schedule::count());
@@ -227,8 +257,7 @@ class WakaScheduleImportTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', fn (string $message) =>
-            str_contains($message, 'Baris 2')
+        $response->assertSessionHas('error', fn (string $message) => str_contains($message, 'Baris 2')
             && str_contains($message, 'bentrok dengan jadwal Putaran 1')
             && str_contains($message, 'Guru (Budi Santoso)')
         );
@@ -305,8 +334,7 @@ class WakaScheduleImportTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', fn (string $message) =>
-            str_contains($message, 'Baris 2 (Putaran 1)')
+        $response->assertSessionHas('error', fn (string $message) => str_contains($message, 'Baris 2 (Putaran 1)')
             && str_contains($message, 'bentrok dengan jadwal Putaran 1')
         );
         $this->assertSame(1, Schedule::count());
@@ -338,13 +366,13 @@ class WakaScheduleImportTest extends TestCase
             'Hari',
             'Jam Mulai',
             'Jam Selesai',
-        ]) . "\n";
+        ])."\n";
 
         foreach ($rows as $row) {
             $contents .= implode(',', array_map(
-                fn (string $value) => '"' . str_replace('"', '""', $value) . '"',
+                fn (string $value) => '"'.str_replace('"', '""', $value).'"',
                 $row
-            )) . "\n";
+            ))."\n";
         }
 
         return UploadedFile::fake()->createWithContent('jadwal.csv', $contents);
@@ -355,7 +383,7 @@ class WakaScheduleImportTest extends TestCase
         return User::create([
             'fullname' => $fullname,
             'username' => $username,
-            'email' => $username . '@example.com',
+            'email' => $username.'@example.com',
             'password' => Hash::make('password'),
             'role_id' => $role->id,
             'subject' => $subject,

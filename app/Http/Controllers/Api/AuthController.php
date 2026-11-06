@@ -9,6 +9,7 @@ use App\Models\PasswordOtp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 
@@ -17,23 +18,43 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required|string',
+            'identifier' => 'required_without:username|string',
+            'username' => 'required_without:identifier|string',
             'password' => 'required|string',
         ]);
 
-        $user = User::where('username', $request->username)->first();
+        $identifier = $request->input('identifier', $request->input('username'));
+        $users = User::where('username', $identifier)
+            ->orWhere(function ($query) use ($identifier) {
+                $query->where('nis', $identifier)
+                    ->whereHas('role', fn ($role) => $role->whereIn('role_name', ['Siswa', 'Orang Tua']));
+            })
+            ->orWhere(function ($query) use ($identifier) {
+                $query->where('nip', $identifier)
+                    ->whereHas('role', fn ($role) => $role->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK', 'Waka Kurikulum']));
+            })
+            ->get()
+            ->filter(fn (User $candidate) => Hash::check($request->password, $candidate->password))
+            ->values();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if ($users->count() !== 1) {
             throw ValidationException::withMessages([
-                'username' => ['Username atau password salah.'],
+                'identifier' => ['NIS/NIP/username atau password salah.'],
             ]);
         }
 
-        if ($user->isWaka()) {
+        $user = $users->first();
+
+        if ($user->hasPrimaryRole('Waka Kurikulum')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akun Waka hanya bisa login melalui website.',
             ], 403);
+        }
+
+        $user->load(['role:id,role_name', 'class:id,class_name', 'additionalRoles:id,role_name']);
+        if ($user->isGuruBK()) {
+            $user->load(['bkClasses:id,class_name,grade,major,section']);
         }
 
         $user->tokens()->delete();
@@ -44,14 +65,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login berhasil',
             'data' => [
-                'user' => [
-                    'id'       => $user->id,
-                    'fullname' => $user->fullname,
-                    'username' => $user->username,
-                    'role'     => $user->role->role_name,
-                    'class_id' => $user->class_id,
-                    'class'    => $user->class->class_name ?? null,
-                ],
+                'user' => $this->serializeUserProfile($user),
                 'token' => $token,
             ],
         ]);
@@ -69,19 +83,51 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        $user = $request->user()->load('role', 'class');
+        $user = $request->user();
+        $user->loadMissing(['role:id,role_name', 'class:id,class_name', 'additionalRoles:id,role_name']);
+        if ($user->isGuruBK()) {
+            $user->loadMissing(['bkClasses:id,class_name,grade,major,section']);
+        }
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'id'       => $user->id,
-                'fullname' => $user->fullname,
-                'username' => $user->username,
-                'role'     => $user->role->role_name,
-                'class'    => $user->class->class_name ?? null,
-                'class_id' => $user->class_id,
-            ],
+            'data' => $this->serializeUserProfile($user),
         ]);
+    }
+
+    private function serializeUserProfile(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'fullname' => $user->fullname,
+            'username' => $user->username,
+            'nis' => $user->nis,
+            'nip' => $user->nip,
+            'role' => $user->role->role_name,
+            'class_id' => $user->class_id,
+            'class' => $user->class?->class_name,
+            'children' => $user->isOrangTua()
+                ? $user->children()->get(['id', 'fullname', 'nis', 'class_id'])
+                : [],
+            'additional_roles' => $user->additionalRoles
+                ->sortBy('role_name')
+                ->map(fn (Role $role) => ['id' => $role->id, 'role_name' => $role->role_name])
+                ->values()
+                ->all(),
+            'bk_classes' => $user->isGuruBK()
+                ? $user->bkClasses
+                    ->sortBy('class_name')
+                    ->map(fn ($class) => [
+                        'id' => $class->id,
+                        'class_name' => $class->class_name,
+                        'grade' => $class->grade,
+                        'major' => $class->major,
+                        'section' => $class->section,
+                    ])
+                    ->values()
+                    ->all()
+                : [],
+        ];
     }
 
     public function children(Request $request)
@@ -97,7 +143,7 @@ class AuthController extends Controller
 
         $children = User::where('parent_id', $user->id)
             ->orderBy('fullname')
-            ->get(['id', 'fullname', 'class_id', 'username']);
+            ->get(['id', 'fullname', 'nis', 'class_id', 'username']);
 
         return response()->json([
             'success' => true,
@@ -107,6 +153,16 @@ class AuthController extends Controller
 
     public function register(Request $request)
     {
+        $role = Role::find($request->role_id);
+        $roleName = strtolower($role?->role_name ?? '');
+
+        if ($roleName === 'orang tua') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun Orang Tua dibuat melalui import data siswa agar tertaut ke anak.',
+            ], 403);
+        }
+
         $rules = [
             'fullname' => 'required|string|max:100',
             'username' => 'required|string|max:50|unique:users,username',
@@ -115,14 +171,23 @@ class AuthController extends Controller
             'role_id'  => 'required|exists:roles,id',
             'class_id' => 'nullable|exists:classes,id',
             'subject'  => 'nullable|string|max:100',
+            'nis'      => 'nullable|string|max:30',
+            'nip'      => 'nullable|string|max:30|unique:users,nip',
         ];
-
-        $role = Role::find($request->role_id);
-
-        $roleName = strtolower($role?->role_name ?? '');
 
         if (in_array($roleName, ['siswa', 'wali kelas'], true)) {
             $rules['class_id'] = 'required|exists:classes,id';
+        }
+        if ($roleName === 'siswa') {
+            $rules['nis'] = [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('users', 'nis')->where(fn ($query) => $query->where('role_id', $role->id)),
+            ];
+        }
+        if (in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true)) {
+            $rules['nip'] = 'required|string|max:30|unique:users,nip';
         }
 
         $request->validate($rules);
@@ -142,6 +207,8 @@ class AuthController extends Controller
             'role_id'  => $request->role_id,
             'class_id' => $request->class_id,
             'subject'  => $request->subject,
+            'nis'      => $roleName === 'siswa' ? $request->nis : null,
+            'nip'      => in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true) ? $request->nip : null,
         ]);
 
         return response()->json([
@@ -150,6 +217,8 @@ class AuthController extends Controller
             'data' => [
                 'id'       => $user->id,
                 'username' => $user->username,
+                'nis'      => $user->nis,
+                'nip'      => $user->nip,
                 'fullname' => $user->fullname,
                 'class_id' => $user->class_id,
                 'class'    => $user->class?->class_name,
@@ -167,7 +236,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if ($user->isWaka()) {
+        if ($user->hasPrimaryRole('Waka Kurikulum')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akun Waka hanya bisa reset password melalui website.',
@@ -212,7 +281,7 @@ class AuthController extends Controller
             ], 422);
         }
 
-        if ($user->isWaka()) {
+        if ($user->hasPrimaryRole('Waka Kurikulum')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akun Waka hanya bisa reset password melalui website.',
@@ -249,7 +318,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if ($user->isWaka()) {
+        if ($user->hasPrimaryRole('Waka Kurikulum')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akun Waka hanya bisa reset password melalui website.',

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Waka;
 use App\Http\Controllers\Controller;
 use App\Models\SystemConfiguration;
 use App\Models\Schedule;
+use App\Models\Attendance;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -39,6 +40,37 @@ class DashboardController extends Controller
             ->where('day_of_week', $today)
             ->orderBy('start_time')
             ->get();
+        $todayScheduleIds = $todaySchedules->pluck('id');
+        $todayJournalCount = \App\Models\Journal::whereIn('schedule_id', $todayScheduleIds)
+            ->whereDate('date', $todayDate)
+            ->distinct('schedule_id')
+            ->count('schedule_id');
+
+        // Total target siswa dari seluruh kelas yang terjadwal hari ini
+        $todayClassIds       = $todaySchedules->pluck('class_id')->unique();
+        $totalTargetStudents = \App\Models\User::whereIn('class_id', $todayClassIds)
+            ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
+            ->count();
+
+        // Jumlah siswa unik yang tercatat Hadir hari ini
+        $todayHadirCount = Attendance::whereDate('date', $todayDate)
+            ->where('status', 'Hadir')
+            ->distinct('student_id')
+            ->count('student_id');
+
+        // Total siswa unik yang sudah terdata presensinya hari ini
+        $todayAttendanceTotal = Attendance::whereDate('date', $todayDate)
+            ->distinct('student_id')
+            ->count('student_id');
+
+        $todayJournalPercentage = $todaySchedules->isEmpty()
+            ? 0
+            : round(($todayJournalCount / $todaySchedules->count()) * 100, 2);
+
+        // Persentase kehadiran dihitung proporsional terhadap total target siswa yang terjadwal hari ini
+        $todayAttendancePercentage = $totalTargetStudents === 0
+            ? 0
+            : round(($todayHadirCount / $totalTargetStudents) * 100, 2);
 
         $belumIsi = $todaySchedules->filter(function ($s) use ($todayDate) {
             $punyaJurnalHariIni = $s->journals->contains(function ($j) use ($todayDate) {
@@ -59,6 +91,16 @@ class DashboardController extends Controller
             return $now->greaterThan($end->copy()->addMinutes(30));
         })->values();
 
-        return view('waka.dashboard', compact('config', 'lateJournals'));
+        return view('waka.dashboard', compact(
+            'config',
+            'lateJournals',
+            'todayJournalPercentage',
+            'todayAttendancePercentage',
+            'todayJournalCount',
+            'todaySchedules',
+            'todayAttendanceTotal',
+            'todayHadirCount',
+            'totalTargetStudents'
+        ));
     }
 }
