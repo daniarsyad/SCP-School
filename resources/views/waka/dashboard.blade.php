@@ -172,7 +172,7 @@
         </div>
 
         <div class="overflow-x-auto max-h-[440px] overflow-y-auto">
-            <table class="w-full text-sm text-left border-collapse">
+            <table class="w-full text-sm text-left border-collapse min-w-[600px]">
                 <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500 sticky top-0 z-10">
                     <tr>
                         <th class="px-4 py-3 w-14 text-center">No</th>

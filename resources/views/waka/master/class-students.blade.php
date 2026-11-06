@@ -15,7 +15,7 @@
             <span class="text-xs text-slate-500">{{ $students->count() }} siswa</span>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left border-collapse">
+            <table class="w-full text-sm text-left border-collapse min-w-[480px]">
                 <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
                     <tr>
                         <th class="px-4 py-3 w-12 text-center">No</th>

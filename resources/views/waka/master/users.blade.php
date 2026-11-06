@@ -36,7 +36,7 @@
     @endif
 
     <!-- Statistik -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
         <div class="bg-white border border-slate-200 rounded-lg p-4">
             <p class="text-xs text-slate-500">Total Akun</p>
             <p class="text-xl font-semibold text-slate-900 mt-1">{{ $stats['total'] }}</p>
@@ -371,7 +371,7 @@
             <span class="text-xs text-slate-500">{{ $users->count() }} pengguna</span>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-sm text-left border-collapse">
+            <table class="w-full text-sm text-left border-collapse min-w-[720px]">
                 <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
                     <tr>
                         <th class="px-4 py-3 w-12 text-center">No</th>

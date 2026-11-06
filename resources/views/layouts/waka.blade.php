@@ -130,13 +130,18 @@
         $sysConfig = \App\Models\SystemConfiguration::current();
     @endphp
 
-    <div class="app-shell">
+    <div class="app-shell relative">
+
+        {{-- BACKDROP OVERLAY UNTUK MOBILE --}}
+        <div id="sidebarBackdrop" onclick="closeSidebarMobile()"
+             class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 hidden lg:hidden transition-opacity duration-200"></div>
 
         {{-- SIDEBAR --}}
-        <aside class="sidebar w-64 text-slate-300 border-r border-slate-800">
+        <aside id="sidebarDrawer"
+               class="sidebar fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:static lg:w-64 lg:max-w-none text-slate-300 border-r border-slate-800 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
             {{-- Brand Sekolah --}}
-            <div class="px-5 py-4 border-b border-slate-800/80">
-                <div class="flex items-center gap-3">
+            <div class="px-5 py-4 border-b border-slate-800/80 flex items-center justify-between">
+                <div class="flex items-center gap-3 min-w-0">
                     <img src="{{ asset('images/logo-smkn1.png') }}"
                          alt="SMKN 1 Bantul"
                          class="h-10 w-10 object-contain flex-shrink-0 rounded-full bg-white p-0.5 shadow-xs">
@@ -149,6 +154,14 @@
                         </div>
                     </div>
                 </div>
+                {{-- Tombol Tutup Sidebar di Mobile --}}
+                <button type="button" onclick="closeSidebarMobile()"
+                        class="lg:hidden p-1.5 -mr-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+                        aria-label="Tutup Menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
             </div>
 
             {{-- Menu Navigasi dengan Dropdown --}}
@@ -289,38 +302,49 @@
         </aside>
 
         {{-- MAIN CONTENT AREA --}}
-        <main class="main-scroll">
-            {{-- Top Bar Bersih --}}
-            <header class="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4 shrink-0">
-                <div class="flex items-center gap-3 text-xs text-slate-500">
-                    <span class="font-medium text-slate-700">SMK Negeri 1 Bantul</span>
-                    <span class="text-slate-300">/</span>
-                    <span>Sistem Manajemen Akademik</span>
+        <main class="main-scroll min-w-0">
+            {{-- Top Bar Bersih & Responsif --}}
+            <header class="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3 shrink-0">
+                <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                    {{-- Hamburger Button Mobile --}}
+                    <button type="button" onclick="openSidebarMobile()"
+                            class="lg:hidden p-1.5 sm:p-2 -ml-1 sm:-ml-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none transition"
+                            aria-label="Buka Menu Navigasi">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+
+                    <div class="flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 truncate">
+                        <span class="font-semibold text-slate-800 truncate">SCP School</span>
+                        <span class="hidden sm:inline text-slate-300">/</span>
+                        <span class="hidden sm:inline truncate">SMK Negeri 1 Bantul</span>
+                    </div>
                 </div>
 
                 @if($sysConfig)
-                    <div class="flex items-center gap-2.5">
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200/80 text-xs font-medium">
+                    <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                        <span class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200/80 text-[11px] sm:text-xs font-medium">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                            Putaran {{ $sysConfig->active_cycle }}
+                            <span>Putaran {{ $sysConfig->active_cycle }}</span>
                         </span>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border {{ $sysConfig->is_schedule_locked ? 'bg-red-50 text-red-700 border-red-200/80' : 'bg-emerald-50 text-emerald-700 border-emerald-200/80' }}">
+                        <span class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-medium border {{ $sysConfig->is_schedule_locked ? 'bg-red-50 text-red-700 border-red-200/80' : 'bg-emerald-50 text-emerald-700 border-emerald-200/80' }}">
                             <span class="w-1.5 h-1.5 rounded-full {{ $sysConfig->is_schedule_locked ? 'bg-red-600' : 'bg-emerald-600' }}"></span>
-                            {{ $sysConfig->is_schedule_locked ? 'Jadwal Terkunci' : 'Jadwal Terbuka' }}
+                            <span>{{ $sysConfig->is_schedule_locked ? 'Terkunci' : 'Terbuka' }}</span>
                         </span>
                     </div>
                 @endif
             </header>
 
             {{-- Isi Halaman --}}
-            <div class="p-6 md:p-7 max-w-7xl w-full mx-auto flex-1">
+            <div class="p-3.5 sm:p-5 md:p-6 lg:p-7 max-w-7xl w-full mx-auto flex-1 min-w-0">
                 @if(session('success'))
-                    <div class="mb-5 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-800 text-sm border border-emerald-200">
+                    <div class="mb-4 sm:mb-5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-emerald-50 text-emerald-800 text-xs sm:text-sm border border-emerald-200">
                         {{ session('success') }}
                     </div>
                 @endif
                 @if(session('error'))
-                    <div class="mb-5 px-4 py-3 rounded-lg bg-red-50 text-red-800 text-sm border border-red-200">
+                    <div class="mb-4 sm:mb-5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-lg bg-red-50 text-red-800 text-xs sm:text-sm border border-red-200">
                         {{ session('error') }}
                     </div>
                 @endif
@@ -331,6 +355,32 @@
     </div>
 
     <script>
+        function openSidebarMobile() {
+            const sidebar = document.getElementById('sidebarDrawer');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (sidebar) sidebar.classList.remove('-translate-x-full');
+            if (backdrop) backdrop.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden', 'lg:overflow-auto');
+        }
+
+        function closeSidebarMobile() {
+            const sidebar = document.getElementById('sidebarDrawer');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (sidebar) sidebar.classList.add('-translate-x-full');
+            if (backdrop) backdrop.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden', 'lg:overflow-auto');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeSidebarMobile();
+        });
+
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 1024) {
+                closeSidebarMobile();
+            }
+        });
+
         function toggleSidebarGroup(groupId, chevronId) {
             const group = document.getElementById(groupId);
             const chevron = document.getElementById(chevronId);
