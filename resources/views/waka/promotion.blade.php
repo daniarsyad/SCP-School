@@ -33,7 +33,7 @@
             <li><span class="font-medium text-slate-800">Tingkat X → XI:</span> Setelah kelas XI kosong, naikkan siswa kelas X ke kelas XI.</li>
         </ol>
         <p class="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
-            Catatan: Kelas tujuan harus kosong (0 siswa aktif) sebelum proses kenaikan dijalankan.
+            Catatan: Kuota maksimal setiap rombel adalah <strong class="text-slate-700">36 siswa</strong>. Siswa yang <strong class="text-slate-700">tidak dicentang</strong> akan tetap berada di kelas asal (tinggal kelas), dan kelas tujuan tetap bisa menerima siswa selama kapasitasnya masih mencukupi (&le; 36 siswa).
         </p>
     </div>
 
@@ -66,39 +66,70 @@
 
     @if($selectedClass)
         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden mb-5">
-            <form action="{{ route('waka.promotion.process') }}" method="POST">
+            <form action="{{ route('waka.promotion.process') }}" method="POST" id="promotionForm">
                 @csrf
                 <input type="hidden" name="class_id" value="{{ $selectedClass->id }}">
 
-                <div class="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                <div class="px-5 py-3.5 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div>
                         <h2 class="text-sm font-semibold text-slate-800">Daftar Siswa Kelas {{ $selectedClass->class_name }}</h2>
                         <p class="text-xs text-slate-500 mt-0.5">
-                            {{ $students->count() }} siswa terdaftar ·
+                            {{ $students->count() }} siswa terdaftar di kelas ini
                             @if($selectedClass->grade === 'XII')
-                                Akan diluluskan menjadi <strong class="text-slate-700">Alumni</strong>
-                            @else
-                                @php
-                                    $nextGrade = $selectedClass->grade === 'X' ? 'XI' : 'XII';
-                                    $targetName = $nextGrade . ' ' . $selectedClass->major . ' ' . $selectedClass->section;
-                                @endphp
-                                Kelas tujuan: <strong class="text-slate-700">{{ $targetName }}</strong>
+                                · Siswa terpilih akan diluluskan menjadi <strong class="text-slate-700">Alumni</strong>
                             @endif
                         </p>
                     </div>
 
-                    @if($selectedClass->grade === 'XII')
-                        <button type="submit" name="graduate" value="1"
-                                class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-md text-xs font-medium transition"
-                                onclick="return confirm('Yakin luluskan siswa terpilih menjadi Alumni?')">
-                            Luluskan Siswa Terpilih
-                        </button>
-                    @else
-                        <button type="submit"
-                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-xs font-medium transition">
-                            Proses Kenaikan Kelas
-                        </button>
-                    @endif
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if($selectedClass->grade !== 'XII')
+                            <div class="flex items-center gap-1.5">
+                                <label for="targetClassSelect" class="text-xs font-medium text-slate-600 whitespace-nowrap">Rombel Tujuan:</label>
+                                <select name="target_class_id" id="targetClassSelect"
+                                        class="border border-slate-300 rounded-md px-2.5 py-1.5 text-xs bg-white text-slate-700 font-medium focus:border-blue-500 focus:outline-none">
+                                    @forelse($targetClasses as $target)
+                                        @php
+                                            $sisa = max(0, 36 - $target->active_students_count);
+                                            $isDefault = $defaultTargetClass && $target->id === $defaultTargetClass->id;
+                                        @endphp
+                                        <option value="{{ $target->id }}" data-capacity="{{ $sisa }}" {{ $isDefault ? 'selected' : '' }}>
+                                            {{ $target->class_name }} (Terisi: {{ $target->active_students_count }}/36 · Sisa {{ $sisa }} kursi)
+                                        </option>
+                                    @empty
+                                        <option value="">-- Buat kelas tujuan di Master Kelas --</option>
+                                    @endforelse
+                                </select>
+                            </div>
+                        @endif
+
+                        <span id="selectedCountBadge" class="text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-medium">
+                            0 dipilih
+                        </span>
+
+                        @if($selectedClass->grade === 'XII')
+                            <button type="submit" name="graduate" value="1"
+                                    class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-1.5 rounded-md text-xs font-medium transition"
+                                    onclick="return confirm('Yakin luluskan siswa terpilih menjadi Alumni?')">
+                                Luluskan Siswa Terpilih
+                            </button>
+                        @else
+                            <button type="submit"
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-xs font-medium transition">
+                                Proses Kenaikan Kelas
+                            </button>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Alert Info Siswa Tinggal Kelas & Kapasitas --}}
+                <div class="px-5 py-2.5 bg-slate-50 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Siswa yang <strong>tidak dicentang</strong> akan tetap berada di kelas <strong class="text-slate-800">{{ $selectedClass->class_name }}</strong> (tinggal kelas).</span>
+                    </div>
+                    <span class="text-slate-500 text-[11px]">Batas maksimal per rombel: <strong>36 siswa</strong></span>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -106,7 +137,7 @@
                         <thead class="bg-slate-50 border-b border-slate-200 text-xs font-medium text-slate-500">
                             <tr>
                                 <th class="px-4 py-3 w-12 text-center">
-                                    <input type="checkbox" id="checkAll" class="rounded border-slate-300" onclick="document.querySelectorAll('.student-check').forEach(c => c.checked = this.checked)">
+                                    <input type="checkbox" id="checkAll" class="rounded border-slate-300">
                                 </th>
                                 <th class="px-4 py-3 w-12 text-center">No</th>
                                 <th class="px-4 py-3 w-40">NIS</th>
@@ -135,10 +166,66 @@
                 </div>
             </form>
         </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const checkAll = document.getElementById('checkAll');
+                const studentChecks = Array.from(document.querySelectorAll('.student-check'));
+                const badge = document.getElementById('selectedCountBadge');
+                const targetSelect = document.getElementById('targetClassSelect');
+
+                function updateCounter() {
+                    const count = studentChecks.filter(c => c.checked).length;
+                    const total = studentChecks.length;
+                    badge.textContent = `${count} dari ${total} dipilih`;
+
+                    if (count > 0) {
+                        badge.classList.remove('bg-slate-100', 'text-slate-700');
+                        badge.classList.add('bg-blue-50', 'text-blue-700', 'border', 'border-blue-200');
+                    } else {
+                        badge.classList.remove('bg-blue-50', 'text-blue-700', 'border', 'border-blue-200');
+                        badge.classList.add('bg-slate-100', 'text-slate-700');
+                    }
+
+                    if (targetSelect) {
+                        const selectedOption = targetSelect.options[targetSelect.selectedIndex];
+                        const sisaKursi = selectedOption ? parseInt(selectedOption.dataset.capacity || '36', 10) : 36;
+                        if (count > sisaKursi) {
+                            badge.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-200');
+                            badge.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+                            badge.textContent = `${count} dipilih (Melebihi sisa ${sisaKursi} kursi!)`;
+                        }
+                    }
+                }
+
+                if (checkAll) {
+                    checkAll.addEventListener('change', function () {
+                        studentChecks.forEach(c => c.checked = checkAll.checked);
+                        updateCounter();
+                    });
+                }
+
+                studentChecks.forEach(c => {
+                    c.addEventListener('change', function () {
+                        if (checkAll) {
+                            checkAll.checked = studentChecks.every(item => item.checked);
+                        }
+                        updateCounter();
+                    });
+                });
+
+                if (targetSelect) {
+                    targetSelect.addEventListener('change', updateCounter);
+                }
+
+                updateCounter();
+            });
+        </script>
     @else
         <div class="bg-white rounded-lg border border-slate-200 p-10 text-center text-slate-500">
             <p class="text-sm font-medium text-slate-700">Pilih Kelas Asal Terlebih Dahulu</p>
             <p class="text-xs text-slate-500 mt-1">Pilih salah satu kelas melalui pilihan di atas untuk menampilkan daftar siswa.</p>
         </div>
     @endif
+@endsection
 @endsection

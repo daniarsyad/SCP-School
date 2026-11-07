@@ -52,6 +52,33 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // Cek jika siswa sudah lulus (Alumni)
+        if ($user->isSiswa() && $user->is_alumni) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun dinonaktifkan karena Anda telah dinyatakan lulus (Alumni).',
+            ], 403);
+        }
+
+        // Cek jika orang tua yang semua anaknya sudah lulus (Alumni)
+        if ($user->isOrangTua()) {
+            $hasActiveChild = User::where('parent_id', $user->id)
+                ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'))
+                ->where('is_alumni', false)
+                ->exists();
+
+            $totalChildren = User::where('parent_id', $user->id)
+                ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'))
+                ->count();
+
+            if ($totalChildren > 0 && !$hasActiveChild) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun dinonaktifkan karena seluruh siswa yang ditautkan telah lulus (Alumni).',
+                ], 403);
+            }
+        }
+
         $user->load(['role:id,role_name', 'class:id,class_name', 'additionalRoles:id,role_name']);
         if ($user->isGuruBK()) {
             $user->load(['bkClasses:id,class_name,grade,major,section']);
@@ -84,6 +111,16 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         $user = $request->user();
+
+        // Validasi jika akun sudah alumni saat token dicek
+        if ($user->isSiswa() && $user->is_alumni) {
+            $user->tokens()->delete();
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun dinonaktifkan karena Anda telah dinyatakan lulus (Alumni).',
+            ], 403);
+        }
+
         $user->loadMissing(['role:id,role_name', 'class:id,class_name', 'additionalRoles:id,role_name']);
         if ($user->isGuruBK()) {
             $user->loadMissing(['bkClasses:id,class_name,grade,major,section']);

@@ -1065,14 +1065,49 @@ class MasterDataController extends Controller
 
         $selectedClass = null;
         $students = collect();
+        $targetClasses = collect();
+        $defaultTargetClass = null;
 
         if ($request->filled('class_id')) {
             $selectedClass = Classes::find($request->class_id);
-            $students = User::where('class_id', $request->class_id)
-                ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
-                ->where('is_alumni', false)
-                ->orderBy('fullname')
-                ->get();
+            if ($selectedClass) {
+                $students = User::where('class_id', $selectedClass->id)
+                    ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
+                    ->where('is_alumni', false)
+                    ->orderBy('fullname')
+                    ->get();
+
+                if ($selectedClass->grade !== 'XII') {
+                    $nextGrade = $selectedClass->grade === 'X' ? 'XI' : 'XII';
+
+                    // Rombel tujuan pada tingkat berikutnya
+                    $targetClasses = Classes::where('grade', $nextGrade)
+                        ->where(function ($q) use ($selectedClass) {
+                            $q->where('major', $selectedClass->major)
+                              ->orWhereNull('major');
+                        })
+                        ->withCount(['users as active_students_count' => function ($q) {
+                            $q->whereHas('role', fn ($r) => $r->where('role_name', 'Siswa'))
+                              ->where('is_alumni', false);
+                        }])
+                        ->orderBy('section')
+                        ->orderBy('class_name')
+                        ->get();
+
+                    if ($targetClasses->isEmpty()) {
+                        $targetClasses = Classes::where('grade', $nextGrade)
+                            ->withCount(['users as active_students_count' => function ($q) {
+                                $q->whereHas('role', fn ($r) => $r->where('role_name', 'Siswa'))
+                                  ->where('is_alumni', false);
+                            }])
+                            ->orderBy('class_name')
+                            ->get();
+                    }
+
+                    $defaultTargetClass = $targetClasses->firstWhere('section', $selectedClass->section)
+                        ?? $targetClasses->first();
+                }
+            }
         }
 
         $totalSiswa = User::whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
@@ -1093,7 +1128,7 @@ class MasterDataController extends Controller
             'total_kelas' => $totalKelas,
         ];
 
-        return view('waka.promotion', compact('classes', 'selectedClass', 'students', 'stats'));
+        return view('waka.promotion', compact('classes', 'selectedClass', 'students', 'stats', 'targetClasses', 'defaultTargetClass'));
     }
 
     public function processPromotion(Request $request)
@@ -1103,6 +1138,7 @@ class MasterDataController extends Controller
             'student_ids' => 'nullable|array',
             'student_ids.*' => 'required|integer|distinct|exists:users,id',
             'graduate' => 'nullable|boolean',
+            'target_class_id' => 'nullable|exists:classes,id',
         ]);
 
         if (! $request->filled('student_ids')) {
@@ -1122,6 +1158,7 @@ class MasterDataController extends Controller
         }
 
         $studentIds = $students->modelKeys();
+        $incomingCount = count($studentIds);
 
         if ($request->boolean('graduate') || $sourceClass->grade === 'XII') {
             User::whereIn('id', $studentIds)->update([
@@ -1129,35 +1166,57 @@ class MasterDataController extends Controller
                 'is_alumni' => true,
             ]);
 
-            return back()->with('success', 'Siswa berhasil diluluskan menjadi Alumni.');
+            return back()->with('success', "{$incomingCount} siswa berhasil diluluskan menjadi Alumni.");
         }
 
         $nextGrade = $sourceClass->grade === 'X' ? 'XI' : 'XII';
 
-        $targetClass = Classes::where('grade', $nextGrade)
-            ->where('major', $sourceClass->major)
-            ->where('section', $sourceClass->section)
-            ->first();
-
-        if (! $targetClass) {
-            return back()->with('error', "Kelas tujuan {$nextGrade} {$sourceClass->major} {$sourceClass->section} belum ada. Buat dulu di Master Kelas.");
+        if ($request->filled('target_class_id')) {
+            $targetClass = Classes::findOrFail($request->target_class_id);
+        } else {
+            $targetClass = Classes::where('grade', $nextGrade)
+                ->where('major', $sourceClass->major)
+                ->where('section', $sourceClass->section)
+                ->first();
         }
 
-        $targetHasStudents = User::where('class_id', $targetClass->id)
+        if (! $targetClass) {
+            return back()->with('error', "Kelas tujuan tingkat {$nextGrade} belum tersedia. Buat kelas terlebih dahulu di Master Kelas.");
+        }
+
+        if ($targetClass->grade !== $nextGrade) {
+            return back()->with('error', "Kelas tujuan ({$targetClass->class_name}) tidak sesuai tingkat. Kelas asal {$sourceClass->grade} harus naik ke tingkat {$nextGrade}.");
+        }
+
+        // Aturan Kapasitas Maksimal (36 Siswa per Rombel)
+        $maxQuota = 36;
+        $currentCount = User::where('class_id', $targetClass->id)
             ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
             ->where('is_alumni', false)
-            ->exists();
+            ->whereNotIn('id', $studentIds)
+            ->count();
 
-        if ($targetHasStudents) {
-            return back()->with('error', "Kelas tujuan {$targetClass->class_name} masih terisi siswa.");
+        $totalProjected = $currentCount + $incomingCount;
+
+        if ($totalProjected > $maxQuota) {
+            $sisaKursi = max(0, $maxQuota - $currentCount);
+            return back()->with('error', "Kapasitas kelas {$targetClass->class_name} melebihi batas maksimal ({$maxQuota} siswa). Saat ini terisi {$currentCount} siswa (sisa {$sisaKursi} kursi), namun Anda memilih {$incomingCount} siswa. Kurangi siswa yang dicentang atau pilih rombel lain.");
         }
 
         User::whereIn('id', $studentIds)->update([
             'class_id' => $targetClass->id,
         ]);
 
-        return back()->with('success', "Siswa berhasil dinaikkan ke {$targetClass->class_name}.");
+        $pesanTinggal = '';
+        $sisaSiswaAsal = User::where('class_id', $sourceClass->id)
+            ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
+            ->count();
+        if ($sisaSiswaAsal > 0) {
+            $pesanTinggal = " {$sisaSiswaAsal} siswa yang tidak dicentang tetap berada di {$sourceClass->class_name} (tinggal kelas).";
+        }
 
+        return back()->with('success', "{$incomingCount} siswa berhasil dinaikkan ke {$targetClass->class_name} (Kapasitas sekarang: {$totalProjected}/{$maxQuota} siswa).{$pesanTinggal}");
     }
 
     private function resolveClass(?string $rawClassName): ?Classes
