@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Waka\DashboardController;
+use App\Http\Controllers\Waka\ProfileController;
 use App\Http\Controllers\Waka\SystemConfigController;
 use App\Http\Controllers\Waka\MasterDataController;
 use App\Http\Controllers\Waka\ScheduleController;
@@ -28,6 +29,10 @@ Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword'])-
 
 // ==================== WAKA (harus login & role Waka Kurikulum) ====================
 Route::middleware(['auth', 'waka'])->prefix('waka')->name('waka.')->group(function () {
+    // Profil & Akun Waka
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     

@@ -138,6 +138,7 @@ class AuthController extends Controller
             'id' => $user->id,
             'fullname' => $user->fullname,
             'username' => $user->username,
+            'email' => $user->email,
             'nis' => $user->nis,
             'nip' => $user->nip,
             'role' => $user->role->role_name,
@@ -165,6 +166,76 @@ class AuthController extends Controller
                     ->all()
                 : [],
         ];
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'fullname' => 'sometimes|required|string|max:100',
+            'username' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:50',
+                Rule::unique('users', 'username')->ignore($user->id),
+            ],
+            'email' => [
+                'nullable',
+                'email',
+                'max:100',
+                Rule::unique('users', 'email')->ignore($user->id),
+            ],
+            'current_password' => 'nullable|required_with:new_password|string',
+            'new_password' => 'nullable|string|min:6|confirmed',
+        ], [
+            'username.unique' => 'Username ini sudah digunakan.',
+            'email.unique' => 'Email ini sudah digunakan.',
+            'new_password.min' => 'Password baru minimal 6 karakter.',
+            'new_password.confirmed' => 'Konfirmasi password baru tidak cocok.',
+            'current_password.required_with' => 'Password saat ini wajib diisi untuk mengubah password.',
+        ]);
+
+        if ($request->filled('new_password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Password saat ini tidak sesuai.',
+                    'errors' => [
+                        'current_password' => ['Password saat ini tidak sesuai.'],
+                    ],
+                ], 422);
+            }
+            $user->password = Hash::make($request->new_password);
+        }
+
+        if ($request->has('fullname')) {
+            $user->fullname = $request->fullname;
+        }
+
+        if ($request->has('username')) {
+            $user->username = $request->username;
+        }
+
+        if ($request->has('email')) {
+            $user->email = $request->filled('email') ? $request->email : null;
+        }
+
+        $user->save();
+
+        $user->loadMissing(['role:id,role_name', 'class:id,class_name', 'additionalRoles:id,role_name']);
+        if ($user->isGuruBK()) {
+            $user->loadMissing(['bkClasses:id,class_name,grade,major,section']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil berhasil diperbarui.',
+            'data' => [
+                'user' => $this->serializeUserProfile($user),
+            ],
+        ]);
     }
 
     public function children(Request $request)

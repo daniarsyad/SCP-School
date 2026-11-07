@@ -112,6 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Authentication
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::get('/children', [AuthController::class, 'children']);
     Route::get('/dashboard/today', [AttendanceController::class, 'todaySummary']);
 
