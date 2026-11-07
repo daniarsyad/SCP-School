@@ -141,19 +141,19 @@
                class="sidebar fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:static lg:w-64 lg:max-w-none text-slate-300 border-r border-slate-800 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col">
             {{-- Brand Sekolah --}}
             <div class="px-5 py-4 border-b border-slate-800/80 flex items-center justify-between">
-                <div class="flex items-center gap-3 min-w-0">
+                <a href="{{ route('landing') }}" class="flex items-center gap-3 min-w-0 group" title="Buka Halaman Utama">
                     <img src="{{ asset('images/logo-smkn1.png') }}"
                          alt="SMKN 1 Bantul"
-                         class="h-10 w-10 object-contain flex-shrink-0 rounded-full bg-white p-0.5 shadow-xs">
+                         class="h-10 w-10 object-contain flex-shrink-0 rounded-full bg-white p-0.5 shadow-xs transition transform group-hover:scale-105 duration-200">
                     <div class="min-w-0">
-                        <div class="text-white font-semibold text-sm tracking-tight leading-tight truncate">
+                        <div class="text-white font-semibold text-sm tracking-tight leading-tight truncate group-hover:text-blue-400 transition">
                             SCP School
                         </div>
                         <div class="text-xs text-slate-400 leading-tight mt-0.5 truncate">
                             SMK Negeri 1 Bantul
                         </div>
                     </div>
-                </div>
+                </a>
                 {{-- Tombol Tutup Sidebar di Mobile --}}
                 <button type="button" onclick="closeSidebarMobile()"
                         class="lg:hidden p-1.5 -mr-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
@@ -270,8 +270,8 @@
                     </div>
                 </div>
 
-                {{-- Pengaturan Sistem --}}
-                <div class="pt-2 border-t border-slate-800/80">
+                {{-- Pengaturan Sistem & Halaman Utama --}}
+                <div class="pt-2 border-t border-slate-800/80 space-y-1">
                     <a href="{{ route('waka.system.config') }}"
                        class="nav-item {{ request()->routeIs('waka.system.*') ? 'active' : '' }}">
                         <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
@@ -279,6 +279,14 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
                         <span>Konfigurasi Sistem</span>
+                    </a>
+                    <a href="{{ route('landing') }}"
+                       class="nav-item text-slate-400 hover:text-white"
+                       title="Buka Halaman Utama / Landing Page">
+                        <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        <span>Lihat Web Utama</span>
                     </a>
                 </div>
             </nav>
@@ -316,7 +324,7 @@
                     </button>
 
                     <div class="flex items-center gap-1.5 sm:gap-2 text-xs text-slate-500 truncate">
-                        <span class="font-semibold text-slate-800 truncate">SCP School</span>
+                        <a href="{{ route('landing') }}" class="font-semibold text-slate-800 hover:text-blue-600 truncate transition" title="Buka Halaman Utama">SCP School</a>
                         <span class="hidden sm:inline text-slate-300">/</span>
                         <span class="hidden sm:inline truncate">SMK Negeri 1 Bantul</span>
                     </div>

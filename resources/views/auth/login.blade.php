@@ -15,15 +15,29 @@
 <body class="min-h-screen bg-slate-100 flex items-center justify-center p-4">
 
     <div class="w-full max-w-md">
-        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        {{-- Tombol Kembali ke Beranda di Atas Card --}}
+        <div class="mb-3 flex items-center justify-between">
+            <a href="{{ route('landing') }}"
+               class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition group">
+                <svg class="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+                </svg>
+                <span>Kembali ke Beranda</span>
+            </a>
+            <span class="text-[11px] text-slate-400">Portal Utama</span>
+        </div>
 
-            {{-- Header --}}
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+
+            {{-- Header (Logo dapat diklik untuk kembali ke Beranda) --}}
             <div class="px-8 pt-8 pb-6 text-center border-b border-slate-100">
-                <img src="{{ asset('images/logo-smkn1.png') }}"
-                     alt="SMK Negeri 1 Bantul"
-                     class="mx-auto h-16 w-auto object-contain mb-3">
-                <h1 class="text-lg font-semibold text-slate-800 tracking-tight">SCP School</h1>
-                <p class="text-xs text-slate-500 mt-0.5">SMK Negeri 1 Bantul</p>
+                <a href="{{ route('landing') }}" class="group inline-block focus:outline-none" title="Kembali ke Beranda">
+                    <img src="{{ asset('images/logo-smkn1.png') }}"
+                         alt="SMK Negeri 1 Bantul"
+                         class="mx-auto h-16 w-auto object-contain mb-3 transition transform group-hover:scale-105 duration-200">
+                    <h1 class="text-lg font-semibold text-slate-800 tracking-tight group-hover:text-blue-600 transition">SCP School</h1>
+                    <p class="text-xs text-slate-500 mt-0.5">SMK Negeri 1 Bantul</p>
+                </a>
             </div>
 
             {{-- Form --}}
@@ -71,9 +85,16 @@
                     </button>
                 </form>
 
-                <div class="mt-6 pt-5 border-t border-slate-100 text-center">
+                <div class="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <a href="{{ route('landing') }}"
+                       class="inline-flex items-center gap-1.5 text-slate-500 hover:text-blue-600 transition">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+                        </svg>
+                        <span>Halaman Utama</span>
+                    </a>
                     <a href="{{ route('password.request') }}"
-                       class="inline-block text-xs text-slate-500 hover:text-slate-800 hover:underline">
+                       class="text-slate-500 hover:text-slate-800 hover:underline">
                         Lupa kata sandi?
                     </a>
                 </div>

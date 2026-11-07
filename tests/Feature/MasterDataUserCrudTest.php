@@ -270,5 +270,18 @@ class MasterDataUserCrudTest extends TestCase
         $this->assertEquals($student->nis, $parent->nis);
         $this->assertEquals($parent->id, $student->parent_id);
     }
+
+    public function test_login_and_forgot_password_have_landing_page_links(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertSee('Kembali ke Beranda')
+            ->assertSee('Halaman Utama');
+
+        $this->get('/forgot-password')
+            ->assertOk()
+            ->assertSee('Kembali ke Beranda')
+            ->assertSee('Halaman Utama');
+    }
 }
 
