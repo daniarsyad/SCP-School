@@ -51,9 +51,8 @@ class LeaveRequestController extends Controller
             : $request->student_id;
 
         if ($user->isOrangTua()) {
-            $isChild = User::where('id', $studentId)
-                ->where('parent_id', $user->id)
-                ->exists();
+            $user->syncChildrenParentId();
+            $isChild = $user->getChildrenQuery()->whereKey($studentId)->exists();
 
             if (!$isChild) {
                 return response()->json([
@@ -92,12 +91,19 @@ $leave = LeaveRequest::create([
     {
         $user = $request->user();
 
-        $query = LeaveRequest::with(['student:id,fullname', 'applicant:id,fullname', 'verifiedBy:id,fullname,role_id', 'verifiedBy.role:id,role_name']);
+        $query = LeaveRequest::with([
+            'student:id,fullname,nis,class_id',
+            'student.class:id,class_name',
+            'applicant:id,fullname',
+            'verifiedBy:id,fullname,role_id',
+            'verifiedBy.role:id,role_name'
+        ]);
 
         if ($user->isSiswa()) {
             $query->where('student_id', $user->id);
         } elseif ($user->isOrangTua()) {
-            $childrenIds = User::where('parent_id', $user->id)->pluck('id');
+            $user->syncChildrenParentId();
+            $childrenIds = $user->getChildrenQuery()->pluck('id');
             $query->whereIn('student_id', $childrenIds);
         } else {
             return response()->json([

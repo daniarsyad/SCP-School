@@ -62,14 +62,13 @@ class AuthController extends Controller
 
         // Cek jika orang tua yang semua anaknya sudah lulus (Alumni)
         if ($user->isOrangTua()) {
-            $hasActiveChild = User::where('parent_id', $user->id)
-                ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'))
+            $user->syncChildrenParentId();
+
+            $hasActiveChild = $user->getChildrenQuery()
                 ->where('is_alumni', false)
                 ->exists();
 
-            $totalChildren = User::where('parent_id', $user->id)
-                ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'))
-                ->count();
+            $totalChildren = $user->getChildrenQuery()->count();
 
             if ($totalChildren > 0 && !$hasActiveChild) {
                 return response()->json([
@@ -134,6 +133,23 @@ class AuthController extends Controller
 
     private function serializeUserProfile(User $user): array
     {
+        $childrenData = [];
+        if ($user->isOrangTua()) {
+            $children = $user->syncChildrenParentId();
+            $childrenData = $children->map(fn ($child) => [
+                'id' => $child->id,
+                'fullname' => $child->fullname,
+                'nis' => $child->nis,
+                'class_id' => $child->class_id,
+                'class_name' => $child->class?->class_name,
+                'class' => $child->class ? [
+                    'id' => $child->class->id,
+                    'class_name' => $child->class->class_name,
+                ] : null,
+                'username' => $child->username,
+            ])->values()->all();
+        }
+
         return [
             'id' => $user->id,
             'fullname' => $user->fullname,
@@ -144,9 +160,7 @@ class AuthController extends Controller
             'role' => $user->role->role_name,
             'class_id' => $user->class_id,
             'class' => $user->class?->class_name,
-            'children' => $user->isOrangTua()
-                ? $user->children()->get(['id', 'fullname', 'nis', 'class_id'])
-                : [],
+            'children' => $childrenData,
             'additional_roles' => $user->additionalRoles
                 ->sortBy('role_name')
                 ->map(fn (Role $role) => ['id' => $role->id, 'role_name' => $role->role_name])
@@ -249,13 +263,24 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $children = User::where('parent_id', $user->id)
-            ->orderBy('fullname')
-            ->get(['id', 'fullname', 'nis', 'class_id', 'username']);
+        $children = $user->syncChildrenParentId();
+
+        $data = $children->map(fn ($c) => [
+            'id' => $c->id,
+            'fullname' => $c->fullname,
+            'nis' => $c->nis,
+            'class_id' => $c->class_id,
+            'class_name' => $c->class?->class_name,
+            'class' => $c->class ? [
+                'id' => $c->class->id,
+                'class_name' => $c->class->class_name,
+            ] : null,
+            'username' => $c->username,
+        ])->values()->all();
 
         return response()->json([
             'success' => true,
-            'data' => $children,
+            'data' => $data,
         ]);
     }
 

@@ -111,8 +111,8 @@ class AttendanceController extends Controller
 
             $query->where('student_id', $user->id);
         } else {
-            $childrenQuery = User::where('parent_id', $user->id)
-                ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'));
+            $user->syncChildrenParentId();
+            $childrenQuery = $user->getChildrenQuery();
 
             if ($studentId !== null) {
                 if (! (clone $childrenQuery)->whereKey($studentId)->exists()) {
@@ -165,8 +165,8 @@ class AttendanceController extends Controller
         if ($user->isSiswa()) {
             $students = collect([$user]);
         } elseif ($user->isOrangTua()) {
-            $studentsQuery = User::where('parent_id', $user->id)
-                ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'));
+            $user->syncChildrenParentId();
+            $studentsQuery = $user->getChildrenQuery();
 
             if ($request->filled('student_id')) {
                 $studentsQuery->whereKey($request->validate([

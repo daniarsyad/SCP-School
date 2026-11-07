@@ -245,14 +245,16 @@ class ScheduleController extends Controller
         }
 
         if ($user->isOrangTua()) {
-            $classIds = User::where('parent_id', $user->id)
+            $user->syncChildrenParentId();
+            $classIds = $user->getChildrenQuery()
                 ->whereNotNull('class_id')
-                ->whereHas('role', function ($roleQuery) {
-                    $roleQuery->where('role_name', 'Siswa');
-                })
                 ->pluck('class_id')
                 ->unique()
                 ->values();
+
+            if ($classIds->isEmpty() && $user->class_id) {
+                $classIds = collect([(int) $user->class_id]);
+            }
 
             if ($requestedClassId !== null && !$classIds->contains((int) $requestedClassId)) {
                 return response()->json([
@@ -261,9 +263,10 @@ class ScheduleController extends Controller
                 ], 403);
             }
 
-            $query->whereIn('class_id', $classIds);
             if ($requestedClassId !== null) {
                 $query->where('class_id', $requestedClassId);
+            } else {
+                $query->whereIn('class_id', $classIds);
             }
             return null;
         }

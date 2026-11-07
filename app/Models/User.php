@@ -73,6 +73,35 @@ class User extends Authenticatable
         return $this->hasMany(User::class, 'parent_id');
     }
 
+    public function getChildrenQuery()
+    {
+        return User::where(function ($q) {
+            $q->where('parent_id', $this->id);
+            if ($this->nis) {
+                $q->orWhere(function ($sub) {
+                    $sub->where('nis', $this->nis)
+                        ->whereHas('role', fn ($r) => $r->where('role_name', 'Siswa'));
+                });
+            }
+        })->whereHas('role', fn ($r) => $r->where('role_name', 'Siswa'));
+    }
+
+    public function syncChildrenParentId()
+    {
+        if (!$this->isOrangTua()) {
+            return collect();
+        }
+
+        $children = $this->getChildrenQuery()->with('class:id,class_name')->get();
+        foreach ($children as $child) {
+            if ($child->parent_id !== $this->id) {
+                $child->update(['parent_id' => $this->id]);
+            }
+        }
+
+        return $children;
+    }
+
     public function schedules()
     {
         return $this->hasMany(Schedule::class, 'teacher_id');
