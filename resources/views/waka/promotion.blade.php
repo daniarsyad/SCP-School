@@ -24,17 +24,62 @@
         </div>
     </div>
 
-    {{-- Alur --}}
-    <div class="bg-white rounded-lg border border-slate-200 p-4 mb-5">
-        <h2 class="text-sm font-semibold text-slate-800 mb-2">Urutan Prosedur Kenaikan Kelas</h2>
-        <ol class="text-xs text-slate-600 space-y-1 list-decimal list-inside">
-            <li><span class="font-medium text-slate-800">Tingkat XII:</span> Luluskan siswa kelas XII terlebih dahulu menjadi Alumni agar kelas XII kosong.</li>
-            <li><span class="font-medium text-slate-800">Tingkat XI → XII:</span> Setelah kelas XII kosong, naikkan siswa kelas XI ke kelas XII.</li>
-            <li><span class="font-medium text-slate-800">Tingkat X → XI:</span> Setelah kelas XI kosong, naikkan siswa kelas X ke kelas XI.</li>
-        </ol>
-        <p class="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
-            Catatan: Kuota maksimal setiap rombel adalah <strong class="text-slate-700">36 siswa</strong>. Siswa yang <strong class="text-slate-700">tidak dicentang</strong> akan tetap berada di kelas asal (tinggal kelas), dan kelas tujuan tetap bisa menerima siswa selama kapasitasnya masih mencukupi (&le; 36 siswa).
-        </p>
+    {{-- Alur & Prosedur --}}
+    <div class="bg-white rounded-lg border border-slate-200 p-5 mb-5 shadow-xs">
+        <div class="flex items-center gap-2 mb-3">
+            <div class="w-6 h-6 rounded-md bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h2 class="text-sm font-semibold text-slate-800">Alur & Ketentuan Kenaikan Kelas Terbaru</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div class="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center shrink-0">1</span>
+                    <span class="text-xs font-semibold text-slate-800">Luluskan Tingkat XII</span>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Pilih kelas XII, centang siswa yang lulus, lalu klik <strong>Luluskan Siswa</strong>. Akun siswa berganti status jadi <em>Alumni</em> dan kursi kelas XII kosong untuk diisi siswa berikutnya.
+                </p>
+            </div>
+
+            <div class="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center shrink-0">2</span>
+                    <span class="text-xs font-semibold text-slate-800">Kenaikan XI &rarr; XII</span>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Pilih kelas XI. Siswa yang <strong>tinggal kelas jangan dicentang</strong> (otomatis tetap di XI). Siswa yang naik dicentang lalu tentukan rombel XII tujuan (maks. 36 siswa).
+                </p>
+            </div>
+
+            <div class="p-3.5 rounded-lg border border-slate-200 bg-slate-50/70">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <span class="w-5 h-5 rounded-full bg-slate-800 text-white text-[11px] font-bold flex items-center justify-center shrink-0">3</span>
+                    <span class="text-xs font-semibold text-slate-800">Kenaikan X &rarr; XI</span>
+                </div>
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Pilih kelas X. Siswa tinggal kelas jangan dicentang (tetap di X). Siswa yang naik dicentang dan diarahkan ke kelas XI tujuan (sisa kuota otomatis memperhitungkan siswa tinggal kelas di XI).
+                </p>
+            </div>
+        </div>
+
+        <div class="p-3.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-xs text-amber-950 space-y-1.5">
+            <div class="font-semibold flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <span>Ketentuan Penting Siswa Tinggal Kelas & Kuota Maksimal (36 Siswa):</span>
+            </div>
+            <ul class="list-disc list-inside space-y-1 text-slate-700 pl-0.5">
+                <li><strong>Siswa Tinggal Kelas:</strong> Cukup <em>hilangkan centang</em> pada nama siswa tersebut. Siswa yang tidak dicentang otomatis tetap terdaftar di kelas asalnya tanpa perlu dipindahkan manual.</li>
+                <li><strong>Batas Maksimal 36 Siswa:</strong> Setiap rombel dibatasi maksimal 36 siswa. Jika rombel kelas tujuan sudah berisi siswa yang tinggal kelas, kuota kursi yang tersisa akan berkurang secara otomatis.</li>
+                <li><strong>Pemerataan ke Rombel Paralel:</strong> Jika rombel tujuan utama penuh (misal XI RPL 1 sisa kuotanya kurang akibat ada siswa tinggal kelas), Waka dapat memilih <strong>Rombel Tujuan</strong> lain pada pilihan dropdown (misal diarahkan ke XI RPL 2 yang masih memiliki sisa kursi).</li>
+            </ul>
+        </div>
     </div>
 
     {{-- Filter Kelas Asal --}}
