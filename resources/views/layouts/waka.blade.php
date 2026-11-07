@@ -272,6 +272,13 @@
 
                 {{-- Pengaturan Sistem & Halaman Utama --}}
                 <div class="pt-2 border-t border-slate-800/80 space-y-1">
+                    <a href="{{ route('waka.profile') }}"
+                       class="nav-item {{ request()->routeIs('waka.profile*') ? 'active' : '' }}">
+                        <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span>Edit Profil & Akun</span>
+                    </a>
                     <a href="{{ route('waka.system.config') }}"
                        class="nav-item {{ request()->routeIs('waka.system.*') ? 'active' : '' }}">
                         <svg fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
@@ -335,18 +342,28 @@
                     </div>
                 </div>
 
-                @if($sysConfig)
-                    <div class="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+                <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                    @if($sysConfig)
                         <span class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200/80 text-[11px] sm:text-xs font-medium">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
                             <span>Putaran {{ $sysConfig->active_cycle }}</span>
                         </span>
-                        <span class="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-medium border {{ $sysConfig->is_schedule_locked ? 'bg-red-50 text-red-700 border-red-200/80' : 'bg-emerald-50 text-emerald-700 border-emerald-200/80' }}">
+                        <span class="hidden md:inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md text-[11px] sm:text-xs font-medium border {{ $sysConfig->is_schedule_locked ? 'bg-red-50 text-red-700 border-red-200/80' : 'bg-emerald-50 text-emerald-700 border-emerald-200/80' }}">
                             <span class="w-1.5 h-1.5 rounded-full {{ $sysConfig->is_schedule_locked ? 'bg-red-600' : 'bg-emerald-600' }}"></span>
                             <span>{{ $sysConfig->is_schedule_locked ? 'Terkunci' : 'Terbuka' }}</span>
                         </span>
-                    </div>
-                @endif
+                    @endif
+
+                    {{-- Tombol Edit Profil di Topbar --}}
+                    <a href="{{ route('waka.profile') }}"
+                       class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-blue-700 text-xs font-semibold transition"
+                       title="Edit Profil & Password Akun">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span class="hidden sm:inline">Edit Profil</span>
+                    </a>
+                </div>
             </header>
 
             {{-- Isi Halaman --}}
