@@ -301,15 +301,10 @@
             {{-- Footer User & Tombol Keluar --}}
             <div class="px-4 py-3.5 border-t border-slate-800/80 bg-slate-950/40">
                 <div class="flex items-center justify-between gap-2">
-                    <a href="{{ route('waka.profile') }}" class="min-w-0 group flex-1" title="Edit Profil & Akun">
-                        <div class="text-xs font-semibold text-white group-hover:text-blue-400 truncate transition flex items-center gap-1.5">
-                            <span class="truncate">{{ auth()->user()->fullname }}</span>
-                            <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-                            </svg>
-                        </div>
-                        <div class="text-[11px] text-slate-400 group-hover:text-slate-300 truncate transition">Waka Kurikulum · Edit</div>
-                    </a>
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs font-semibold text-white truncate">{{ auth()->user()->fullname }}</div>
+                        <div class="text-[11px] text-slate-400 truncate">Waka Kurikulum</div>
+                    </div>
                     <form action="{{ route('logout') }}" method="POST" class="shrink-0">
                         @csrf
                         <button type="submit"
