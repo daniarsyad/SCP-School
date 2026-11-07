@@ -92,7 +92,7 @@ $leave = LeaveRequest::create([
     {
         $user = $request->user();
 
-        $query = LeaveRequest::with(['student:id,fullname', 'applicant:id,fullname']);
+        $query = LeaveRequest::with(['student:id,fullname', 'applicant:id,fullname', 'verifiedBy:id,fullname,role_id', 'verifiedBy.role:id,role_name']);
 
         if ($user->isSiswa()) {
             $query->where('student_id', $user->id);
@@ -117,10 +117,10 @@ $leave = LeaveRequest::create([
     public function verify(Request $request, $id)
     {
         $user = $request->user();
-        if (!$user->isWaliKelas()) {
+        if (!$user->isWaliKelas() && !$user->isGuruBK()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Hanya Wali Kelas yang dapat memverifikasi pengajuan.',
+                'message' => 'Hanya Wali Kelas dan Guru BK yang dapat memverifikasi pengajuan.',
             ], 403);
         }
 
@@ -137,32 +137,47 @@ $leave = LeaveRequest::create([
             ], 422);
         }
 
-        $leave = LeaveRequest::with('student:id,class_id')->findOrFail($id);
+        $leave = LeaveRequest::with(['student:id,class_id', 'verifiedBy:id,fullname,role_id', 'verifiedBy.role:id,role_name'])->findOrFail($id);
 
-        if (
-            $user->isWaliKelas() &&
-            (
-                !$user->class_id ||
-                (int) $leave->student?->class_id !== (int) $user->class_id
-            )
-        ) {
+        $canVerify = false;
+        if ($user->isWaliKelas() && $user->class_id && (int) $leave->student?->class_id === (int) $user->class_id) {
+            $canVerify = true;
+        }
+        if ($user->isGuruBK()) {
+            $bkClassIds = $user->bkClasses()->pluck('classes.id')->map(fn($id) => (int)$id)->toArray();
+            if (empty($bkClassIds) && $user->class_id) {
+                $bkClassIds = [(int)$user->class_id];
+            }
+            if (in_array((int) $leave->student?->class_id, $bkClassIds, true)) {
+                $canVerify = true;
+            }
+        }
+
+        if (!$canVerify) {
             return response()->json([
                 'success' => false,
-                'message' => 'Anda tidak berhak memproses izin dari kelas ini.'
+                'message' => 'Anda tidak berhak memproses izin dari kelas ini (hanya dapat memproses kelas binaan Anda).'
             ], 403);
         }
 
         if ($leave->status_approval !== 'Pending' || $leave->cancelled_at !== null) {
+            $verifier = $leave->verifiedBy?->fullname;
+            $verifierRole = $leave->verifiedBy?->role?->role_name;
+            $roleStr = $verifierRole ? " ({$verifierRole})" : '';
+            $statusStr = $leave->status_approval === 'Approved' ? 'disetujui' : ($leave->status_approval === 'Rejected' ? 'ditolak' : 'dibatalkan');
+            $msg = $verifier 
+                ? "Pengajuan ini sudah {$statusStr} sebelumnya oleh {$verifier}{$roleStr}."
+                : 'Pengajuan ini sudah diproses sebelumnya.';
             return response()->json([
                 'success' => false,
-                'message' => 'Pengajuan ini sudah diproses sebelumnya.'
+                'message' => $msg,
             ], 409);
         }
 
-        $leave = DB::transaction(function () use ($id, $request, $user, $leave) {
-            $lockedLeave = LeaveRequest::whereKey($id)->lockForUpdate()->firstOrFail();
+        $processedLeave = DB::transaction(function () use ($id, $request, $user) {
+            $lockedLeave = LeaveRequest::with(['verifiedBy:id,fullname,role_id', 'verifiedBy.role:id,role_name'])->whereKey($id)->lockForUpdate()->firstOrFail();
             if ($lockedLeave->status_approval !== 'Pending' || $lockedLeave->cancelled_at !== null) {
-                return null;
+                return $lockedLeave;
             }
 
             $lockedLeave->update([
@@ -177,15 +192,24 @@ $leave = LeaveRequest::create([
                 $this->recalculateLeaveDates($lockedLeave, app(AttendanceLeaveSynchronizer::class));
             }
 
-            return $lockedLeave->fresh();
+            return $lockedLeave->fresh(['student:id,fullname,class_id', 'applicant:id,fullname', 'verifiedBy:id,fullname,role_id', 'verifiedBy.role:id,role_name']);
         });
 
-        if (!$leave) {
+        if ($processedLeave->status_approval !== $request->status_approval) {
+            $verifier = $processedLeave->verifiedBy?->fullname;
+            $verifierRole = $processedLeave->verifiedBy?->role?->role_name;
+            $roleStr = $verifierRole ? " ({$verifierRole})" : '';
+            $statusStr = $processedLeave->status_approval === 'Approved' ? 'disetujui' : ($processedLeave->status_approval === 'Rejected' ? 'ditolak' : 'dibatalkan');
+            $msg = $verifier 
+                ? "Pengajuan ini sudah {$statusStr} sebelumnya oleh {$verifier}{$roleStr}."
+                : 'Pengajuan ini sudah diproses sebelumnya.';
             return response()->json([
                 'success' => false,
-                'message' => 'Pengajuan ini sudah diproses sebelumnya.',
+                'message' => $msg,
             ], 409);
         }
+
+        $leave = $processedLeave;
 
         return response()->json([
             'success' => true,
@@ -205,22 +229,33 @@ $leave = LeaveRequest::create([
             ], 403);
         }
 
-        $query = LeaveRequest::with(['student:id,fullname,class_id', 'applicant:id,fullname'])
+        $query = LeaveRequest::with(['student:id,fullname,class_id', 'student.class:id,class_name', 'applicant:id,fullname', 'verifiedBy:id,fullname,role_id', 'verifiedBy.role:id,role_name'])
             ->where('status_approval', 'Pending')
             ->whereNull('cancelled_at');
 
-        if ($user->isWaliKelas()) {
-            if (!$user->class_id) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Akun Wali Kelas belum terhubung ke kelas.'
-                ], 422);
-            }
-
-            $query->whereHas('student', function ($student) use ($user) {
-                $student->where('class_id', $user->class_id);
-            });
+        $accessibleClassIds = [];
+        if ($user->isWaliKelas() && $user->class_id) {
+            $accessibleClassIds[] = (int) $user->class_id;
         }
+        if ($user->isGuruBK()) {
+            $bkClassIds = $user->bkClasses()->pluck('classes.id')->map(fn($id) => (int)$id)->toArray();
+            if (empty($bkClassIds) && $user->class_id) {
+                $bkClassIds = [(int)$user->class_id];
+            }
+            $accessibleClassIds = array_merge($accessibleClassIds, $bkClassIds);
+        }
+        $accessibleClassIds = array_values(array_unique($accessibleClassIds));
+
+        if (empty($accessibleClassIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun Anda belum terhubung ke kelas binaan.'
+            ], 422);
+        }
+
+        $query->whereHas('student', function ($student) use ($accessibleClassIds) {
+            $student->whereIn('class_id', $accessibleClassIds);
+        });
 
         $data = $query->orderBy('created_at', 'desc')->get();
 

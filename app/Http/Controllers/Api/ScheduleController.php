@@ -26,6 +26,9 @@ class ScheduleController extends Controller
         $config = SystemConfiguration::current();
         $user = $request->user();
         $query = $this->baseScheduleQuery()
+            ->with(['journals' => function ($query) {
+                $query->whereDate('date', Carbon::today());
+            }])
             ->where('cycle_type', $validated['cycle'] ?? $config->active_cycle);
 
         $accessError = $this->applyUserScheduleScope(
@@ -65,22 +68,15 @@ class ScheduleController extends Controller
             ], 403);
         }
 
-        if ($user->isWaliKelas() && !$user->class_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akun Wali Kelas belum terhubung ke kelas.',
-            ], 422);
-        }
-
         $cycle = $request->query('cycle', $config->active_cycle);
         $schedules = $this->baseScheduleQuery()
+            ->with(['journals' => function ($query) {
+                $query->whereDate('date', Carbon::today());
+            }])
             ->where('teacher_id', $user->id)
             ->where('cycle_type', $cycle)
             ->orderByRaw("CASE day_of_week WHEN 'Senin' THEN 1 WHEN 'Selasa' THEN 2 WHEN 'Rabu' THEN 3 WHEN 'Kamis' THEN 4 WHEN 'Jumat' THEN 5 WHEN 'Sabtu' THEN 6 END")
             ->orderBy('start_time')
-            ->when($user->isWaliKelas(), function (Builder $query) use ($user) {
-                $query->where('class_id', $user->class_id);
-            })
             ->get();
 
         return response()->json([

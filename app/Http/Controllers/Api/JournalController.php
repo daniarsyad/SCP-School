@@ -31,6 +31,7 @@ class JournalController extends Controller
             'attendances' => 'sometimes|array|min:1',
             'attendances.*.student_id' => 'required|integer|distinct|exists:users,id',
             'attendances.*.status' => 'required|in:Hadir,Izin,Sakit,Alpha',
+            'attendances.*.notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -225,6 +226,7 @@ class JournalController extends Controller
                         'journal_id' => $journal->id,
                         'student_id' => $item['student_id'],
                         'status' => $item['status'],
+                        'notes' => $item['notes'] ?? null,
                         'date' => $date,
                     ]);
                 }

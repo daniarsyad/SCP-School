@@ -45,6 +45,7 @@ class AttendanceController extends Controller
     ) {
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:Hadir,Izin,Sakit,Alpha',
+            'notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -65,6 +66,9 @@ class AttendanceController extends Controller
         }
 
         $leaveSynchronizer->setTeacherStatus($attendance, $request->status);
+        if ($request->has('notes')) {
+            $attendance->update(['notes' => $request->notes]);
+        }
 
         return response()->json([
             'success' => true,
@@ -82,6 +86,8 @@ class AttendanceController extends Controller
 
         $validator = Validator::make($request->query(), [
             'student_id' => 'sometimes|required|integer',
+            'start_date' => 'sometimes|nullable|date',
+            'end_date'   => 'sometimes|nullable|date',
         ]);
         if ($validator->fails()) {
             return response()->json([
@@ -122,8 +128,16 @@ class AttendanceController extends Controller
             }
         }
 
+        if ($request->filled('start_date')) {
+            $query->whereDate('date', '>=', $request->query('start_date'));
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('date', '<=', $request->query('end_date'));
+        }
+
         $attendances = $query->with([
-            'journal.schedule:id,subject,day_of_week,class_id,room_id',
+            'journal.schedule:id,subject,day_of_week,start_time,end_time,class_id,room_id',
+            'journal.schedule.room:id,room_name',
             'student:id,fullname,class_id',
             'student.class:id,class_name',
         ])
@@ -353,9 +367,13 @@ class AttendanceController extends Controller
             }
             $trailingStreak = $previousDate === $to->toDateString() ? $currentStreak : 0;
 
+            $student = $rows->first()->student;
             return [
                 'student_id' => $rows->first()->student_id,
-                'student' => $rows->first()->student,
+                'student' => $student,
+                'fullname' => $student?->fullname ?? '',
+                'name' => $student?->fullname ?? '',
+                'student_name' => $student?->fullname ?? '',
                 'total_sessions' => $rows->count(),
                 'hadir' => $rows->where('status', 'Hadir')->count(),
                 'izin' => $rows->where('status', 'Izin')->count(),
@@ -378,6 +396,9 @@ class AttendanceController extends Controller
                         $studentSummary->put($student->id, [
                             'student_id' => $student->id,
                             'student' => $student,
+                            'fullname' => $student->fullname,
+                            'name' => $student->fullname,
+                            'student_name' => $student->fullname,
                             'total_sessions' => 0,
                             'hadir' => 0,
                             'izin' => 0,
@@ -394,7 +415,10 @@ class AttendanceController extends Controller
         $totalStudents = $reportClassId === null
             ? $data->pluck('student_id')->unique()->count()
             : $studentSummary->count();
-        $studentSummary = $studentSummary->sortBy(fn ($summary) => $summary['student']->fullname)->values();
+        $studentSummary = $studentSummary->sortBy(function ($summary) {
+            $name = $summary['student']?->fullname ?? $summary['fullname'] ?? '';
+            return strtolower(ltrim(trim((string) $name), "'\"`"));
+        })->values();
 
         return response()->json([
             'success' => true,
