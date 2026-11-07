@@ -54,13 +54,6 @@
 
             {{-- Tombol CTA "Masuk ke Portal" & Toggle Mobile --}}
             <div class="flex items-center gap-2.5">
-                @auth
-                    <a href="{{ route('waka.dashboard') }}"
-                       class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition">
-                        <span>Dashboard Waka</span>
-                    </a>
-                @endauth
-
                 <a href="{{ route('login') }}"
                    class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-xs transition">
                     <span>Masuk ke Portal</span>
@@ -703,12 +696,13 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                             </svg>
                         </a>
-                        @if(Route::has('password.request'))
-                            <a href="{{ route('password.request') }}"
-                               class="inline-flex items-center px-4 py-3 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white text-sm font-medium transition">
-                                Lupa Kata Sandi?
-                            </a>
-                        @endif
+                        <a href="#panduan"
+                           class="inline-flex items-center gap-2 px-5 py-3 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white text-sm font-medium transition">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                            </svg>
+                            <span>Panduan Akses</span>
+                        </a>
                     </div>
                 </div>
             </div>

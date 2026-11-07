@@ -281,6 +281,17 @@ class MasterDataUserCrudTest extends TestCase
         $this->get('/forgot-password')
             ->assertOk()
             ->assertSee(route('landing'));
+
+        // Landing page navbar should not have direct Dashboard Waka link/button
+        $this->get('/')
+            ->assertOk()
+            ->assertDontSee(route('waka.dashboard'));
+
+        $wakaUser = User::where('role_id', 1)->first() ?? User::factory()->create(['role_id' => 1]);
+        $this->actingAs($wakaUser)
+            ->get('/')
+            ->assertOk()
+            ->assertDontSee(route('waka.dashboard'));
     }
 }
 
