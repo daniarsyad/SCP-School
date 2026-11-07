@@ -223,5 +223,39 @@ class PromotionCapacityTest extends TestCase
         // Siswa berhasil diarahkan ke XI RPL 2
         $this->assertEquals($classXI_2->id, $student->fresh()->class_id);
     }
+
+    public function test_promotion_page_loads_successfully_without_and_with_class_filter(): void
+    {
+        $classX = Classes::create([
+            'class_name' => 'X RPL 1',
+            'grade' => 'X',
+            'major' => 'RPL',
+            'section' => '1',
+        ]);
+
+        User::create([
+            'fullname' => 'Siswa X',
+            'username' => 'siswa.x',
+            'password' => Hash::make('password123'),
+            'role_id' => $this->studentRole->id,
+            'nis' => '10001',
+            'class_id' => $classX->id,
+        ]);
+
+        // Akses tanpa filter kelas
+        $this->actingAs($this->waka)
+            ->get('/waka/kenaikan-kelas')
+            ->assertOk()
+            ->assertSee('Kenaikan Kelas')
+            ->assertSee('Kelulusan Siswa')
+            ->assertSee('Pilih Kelas Asal Terlebih Dahulu');
+
+        // Akses dengan filter kelas
+        $this->actingAs($this->waka)
+            ->get('/waka/kenaikan-kelas?class_id=' . $classX->id)
+            ->assertOk()
+            ->assertSee('Daftar Siswa Kelas X RPL 1')
+            ->assertSee('Siswa X');
+    }
 }
 
