@@ -276,12 +276,11 @@ class MasterDataUserCrudTest extends TestCase
         $this->get('/login')
             ->assertOk()
             ->assertSee('Kembali ke Beranda')
-            ->assertSee('Halaman Utama');
+            ->assertSee('Lupa kata sandi?');
 
         $this->get('/forgot-password')
             ->assertOk()
-            ->assertSee('Kembali ke Beranda')
-            ->assertSee('Halaman Utama');
+            ->assertSee(route('landing'));
     }
 }
 

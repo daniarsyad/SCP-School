@@ -14,17 +14,6 @@
 </head>
 <body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
-        {{-- Tombol Kembali ke Beranda di Atas Card --}}
-        <div class="mb-3 flex items-center justify-between">
-            <a href="{{ route('landing') }}"
-               class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-blue-600 transition group">
-                <svg class="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
-                </svg>
-                <span>Kembali ke Beranda</span>
-            </a>
-            <span class="text-[11px] text-slate-400">Portal Utama</span>
-        </div>
 
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
             <div class="px-8 pt-8 pb-6 text-center border-b border-slate-100">
