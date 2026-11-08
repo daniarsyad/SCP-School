@@ -336,35 +336,6 @@
                                 </div>
                             </div>
 
-                            {{-- Floating Card Mobile App Showcase --}}
-                            <div class="hidden sm:block absolute -bottom-6 -right-4 sm:-right-6 w-64 bg-slate-900 text-white rounded-xl p-3.5 shadow-2xl border border-slate-700/80">
-                                <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-800">
-                                    <div class="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center shrink-0">
-                                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <div class="text-xs font-bold leading-tight">SCP Mobile App</div>
-                                        <div class="text-[9px] text-slate-400">Guru · BK · Siswa · Ortu</div>
-                                    </div>
-                                </div>
-                                <div class="space-y-1.5 text-[11px]">
-                                    <div class="flex items-center justify-between text-slate-300">
-                                        <span>Foto KBM Watermark</span>
-                                        <span class="text-emerald-400 font-semibold">Aktif</span>
-                                    </div>
-                                    <div class="flex items-center justify-between text-slate-300">
-                                        <span>Draft Mode Offline</span>
-                                        <span class="text-blue-400 font-semibold">Ready</span>
-                                    </div>
-                                    <div class="flex items-center justify-between text-slate-300">
-                                        <span>Portal Wali Multi-Anak</span>
-                                        <span class="text-amber-400 font-semibold">Tersambung</span>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
                     </div>
 
