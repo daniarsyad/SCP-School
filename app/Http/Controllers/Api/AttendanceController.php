@@ -163,7 +163,7 @@ class AttendanceController extends Controller
         $now = Carbon::now('Asia/Jakarta');
         $today = $now->toDateString();
         $todayDayName = $now->locale('id')->isoFormat('dddd');
-        $activeCycle = \App\Models\SystemConfig::current()?->active_cycle ?? '1';
+        $activeCycle = \App\Models\SystemConfiguration::current()?->active_cycle ?? '1';
 
         if ($user->isSiswa()) {
             $students = collect([$user]);
