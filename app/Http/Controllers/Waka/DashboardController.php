@@ -50,6 +50,7 @@ class DashboardController extends Controller
         $todayClassIds       = $todaySchedules->pluck('class_id')->unique();
         $totalTargetStudents = \App\Models\User::whereIn('class_id', $todayClassIds)
             ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
             ->count();
 
         // Jumlah siswa unik yang tercatat Hadir hari ini

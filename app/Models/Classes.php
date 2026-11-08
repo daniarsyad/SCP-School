@@ -33,6 +33,7 @@ class Classes extends Model
     {
         return $this->hasMany(User::class, 'class_id')
             ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
             ->orderBy('fullname');
     }
 

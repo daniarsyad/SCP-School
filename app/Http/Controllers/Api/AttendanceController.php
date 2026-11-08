@@ -160,7 +160,10 @@ class AttendanceController extends Controller
     public function todaySummary(Request $request)
     {
         $user = $request->user();
-        $today = Carbon::now('Asia/Jakarta')->toDateString();
+        $now = Carbon::now('Asia/Jakarta');
+        $today = $now->toDateString();
+        $todayDayName = $now->locale('id')->isoFormat('dddd');
+        $activeCycle = \App\Models\SystemConfig::current()?->active_cycle ?? '1';
 
         if ($user->isSiswa()) {
             $students = collect([$user]);
@@ -185,13 +188,27 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
 
-        $data = $students->map(function (User $student) use ($today) {
+        $data = $students->map(function (User $student) use ($today, $todayDayName, $activeCycle) {
             $counts = Attendance::where('student_id', $student->id)
                 ->whereDate('date', $today)
                 ->selectRaw('status, COUNT(*) as total')
                 ->groupBy('status')
                 ->pluck('total', 'status');
             $total = (int) $counts->sum();
+
+            $schedules = $student->class_id
+                ? \App\Models\Schedule::with([
+                    'class:id,class_name',
+                    'teacher:id,fullname',
+                    'room:id,room_name',
+                    'period:id,period_number,label,start_time,end_time',
+                ])
+                    ->where('class_id', $student->class_id)
+                    ->where('cycle_type', $activeCycle)
+                    ->where('day_of_week', $todayDayName)
+                    ->orderBy('start_time')
+                    ->get()
+                : collect();
 
             return [
                 'student' => [
@@ -208,10 +225,16 @@ class AttendanceController extends Controller
                 'sakit' => (int) ($counts['Sakit'] ?? 0),
                 'alpha' => (int) ($counts['Alpha'] ?? 0),
                 'present_percentage' => $total === 0 ? 0 : round((($counts['Hadir'] ?? 0) / $total) * 100, 2),
+                'schedules' => $schedules,
             ];
         })->values();
 
-        return response()->json(['success' => true, 'date' => $today, 'data' => $data]);
+        return response()->json([
+            'success' => true,
+            'date' => $today,
+            'schedules' => $data->first()['schedules'] ?? [],
+            'data' => $data,
+        ]);
     }
 
     public function reportFilters(Request $request)
@@ -221,8 +244,13 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Akses ditolak'], 403);
         }
 
+        $bkClassIds = ($user->isGuruBK() && ! $user->isWaliKelas())
+            ? $user->bkClasses()->pluck('classes.id')->all()
+            : [];
+
         $classes = \App\Models\Classes::query()
             ->when($user->isWaliKelas(), fn ($query) => $query->whereKey($user->class_id))
+            ->when(! empty($bkClassIds), fn ($query) => $query->whereIn('id', $bkClassIds))
             ->orderBy('grade')->orderBy('major')->orderBy('section')
             ->get(['id', 'class_name', 'grade', 'major', 'section']);
         $teachers = User::whereHas('role', fn ($query) => $query->whereIn('role_name', ['Guru', 'Wali Kelas', 'Guru BK']))
@@ -230,14 +258,23 @@ class AttendanceController extends Controller
                 'schedules',
                 fn ($schedule) => $schedule->where('class_id', $user->class_id)
             ))
+            ->when(! empty($bkClassIds), fn ($query) => $query->whereHas(
+                'schedules',
+                fn ($schedule) => $schedule->whereIn('class_id', $bkClassIds)
+            ))
             ->orderBy('fullname')
             ->get(['id', 'fullname']);
+        $periods = \App\Models\Period::orderBy('period_number')
+            ->get(['id', 'period_number', 'label', 'start_time', 'end_time']);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'classes' => $classes,
                 'grades' => ['X', 'XI', 'XII'],
+                'majors' => $classes->pluck('major')->filter()->unique()->values()->all(),
+                'sections' => $classes->pluck('section')->filter()->unique()->values()->all(),
+                'periods' => $periods,
                 'teachers' => $teachers,
             ],
         ]);
@@ -381,6 +418,7 @@ class AttendanceController extends Controller
                 'alpha' => $rows->where('status', 'Alpha')->count(),
                 'alpha_consecutive_days' => $trailingStreak,
                 'max_alpha_consecutive_days' => $maxStreak,
+                'consecutive_alpha' => $maxStreak,
                 'repeated_alpha' => $maxStreak > 3,
             ];
         })->keyBy('student_id');
@@ -389,6 +427,7 @@ class AttendanceController extends Controller
         if ($reportClassId !== null) {
             User::where('class_id', $reportClassId)
                 ->whereHas('role', fn ($role) => $role->where('role_name', 'Siswa'))
+                ->where('is_alumni', false)
                 ->orderBy('fullname')
                 ->get(['id', 'fullname'])
                 ->each(function (User $student) use ($studentSummary) {

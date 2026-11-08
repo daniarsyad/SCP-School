@@ -25,6 +25,11 @@ class User extends Authenticatable
         'password',
         'fullname',
         'subject',
+        'is_alumni',
+    ];
+
+    protected $casts = [
+        'is_alumni' => 'boolean',
     ];
 
     protected $hidden = [
@@ -73,9 +78,9 @@ class User extends Authenticatable
         return $this->hasMany(User::class, 'parent_id');
     }
 
-    public function getChildrenQuery()
+    public function getChildrenQuery(bool $includeAlumni = false)
     {
-        return User::where(function ($q) {
+        $query = User::where(function ($q) {
             $q->where('parent_id', $this->id);
             if ($this->nis) {
                 $q->orWhere(function ($sub) {
@@ -84,6 +89,12 @@ class User extends Authenticatable
                 });
             }
         })->whereHas('role', fn ($r) => $r->where('role_name', 'Siswa'));
+
+        if (!$includeAlumni) {
+            $query->where('is_alumni', false);
+        }
+
+        return $query;
     }
 
     public function syncChildrenParentId()
@@ -92,14 +103,14 @@ class User extends Authenticatable
             return collect();
         }
 
-        $children = $this->getChildrenQuery()->with('class:id,class_name')->get();
-        foreach ($children as $child) {
+        $allChildren = $this->getChildrenQuery(true)->get();
+        foreach ($allChildren as $child) {
             if ($child->parent_id !== $this->id) {
                 $child->update(['parent_id' => $this->id]);
             }
         }
 
-        return $children;
+        return $this->getChildrenQuery(false)->with('class:id,class_name')->get();
     }
 
     public function schedules()

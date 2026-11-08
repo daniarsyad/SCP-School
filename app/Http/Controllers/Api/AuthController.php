@@ -64,11 +64,8 @@ class AuthController extends Controller
         if ($user->isOrangTua()) {
             $user->syncChildrenParentId();
 
-            $hasActiveChild = $user->getChildrenQuery()
-                ->where('is_alumni', false)
-                ->exists();
-
-            $totalChildren = $user->getChildrenQuery()->count();
+            $hasActiveChild = $user->getChildrenQuery(false)->exists();
+            $totalChildren = $user->getChildrenQuery(true)->count();
 
             if ($totalChildren > 0 && !$hasActiveChild) {
                 return response()->json([
@@ -120,6 +117,20 @@ class AuthController extends Controller
             ], 403);
         }
 
+        if ($user->isOrangTua()) {
+            $user->syncChildrenParentId();
+            $hasActiveChild = $user->getChildrenQuery(false)->exists();
+            $totalChildren = $user->getChildrenQuery(true)->count();
+
+            if ($totalChildren > 0 && !$hasActiveChild) {
+                $user->tokens()->delete();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun dinonaktifkan karena seluruh siswa yang ditautkan telah lulus (Alumni).',
+                ], 403);
+            }
+        }
+
         $user->loadMissing(['role:id,role_name', 'class:id,class_name', 'additionalRoles:id,role_name']);
         if ($user->isGuruBK()) {
             $user->loadMissing(['bkClasses:id,class_name,grade,major,section']);
@@ -157,6 +168,7 @@ class AuthController extends Controller
             'email' => $user->email,
             'nis' => $user->nis,
             'nip' => $user->nip,
+            'role_id' => $user->role_id,
             'role' => $user->role->role_name,
             'class_id' => $user->class_id,
             'class' => $user->class?->class_name,
@@ -485,7 +497,7 @@ class AuthController extends Controller
 
     public function roles()
     {
-        $roles = Role::where('role_name', '!=', 'Waka Kurikulum')
+        $roles = Role::whereNotIn('role_name', ['Waka Kurikulum', 'Orang Tua'])
             ->orderBy('role_name')
             ->get(['id', 'role_name']);
 

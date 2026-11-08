@@ -100,6 +100,7 @@ class JournalController extends Controller
 
         $students = User::where('class_id', $schedule->class_id)
             ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
             ->orderBy('id')
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
@@ -174,6 +175,7 @@ class JournalController extends Controller
 
                 $currentStudentIds = User::where('class_id', $lockedSchedule->class_id)
                     ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'))
+                    ->where('is_alumni', false)
                     ->orderBy('id')
                     ->lockForUpdate()
                     ->pluck('id')
@@ -362,6 +364,7 @@ class JournalController extends Controller
 
         $expectedCounts = User::whereNotNull('class_id')
             ->whereHas('role', fn ($query) => $query->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
             ->selectRaw('class_id, COUNT(*) as aggregate')
             ->groupBy('class_id')
             ->pluck('aggregate', 'class_id');
@@ -374,6 +377,13 @@ class JournalController extends Controller
                 'class' => $schedule->class,
                 'teacher' => $schedule->teacher,
                 'subject' => $schedule->subject,
+                'photo_path' => $journal->photo_path,
+                'schedule' => [
+                    'id' => $schedule->id,
+                    'subject' => $schedule->subject,
+                    'class' => $schedule->class,
+                    'teacher' => $schedule->teacher,
+                ],
                 'topic_description' => $journal->topic_description,
                 'activity_notes' => $journal->activity_notes,
                 'submitted_at' => $journal->created_at,

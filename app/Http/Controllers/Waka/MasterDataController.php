@@ -1160,13 +1160,29 @@ class MasterDataController extends Controller
         $studentIds = $students->modelKeys();
         $incomingCount = count($studentIds);
 
+        $parentIds = $students->pluck('parent_id')->filter()->unique()->values()->all();
+
         if ($request->boolean('graduate') || $sourceClass->grade === 'XII') {
             User::whereIn('id', $studentIds)->update([
                 'class_id' => null,
                 'is_alumni' => true,
             ]);
 
-            return back()->with('success', "{$incomingCount} siswa berhasil diluluskan menjadi Alumni.");
+            \Laravel\Sanctum\PersonalAccessToken::where('tokenable_type', User::class)
+                ->whereIn('tokenable_id', $studentIds)
+                ->delete();
+
+            if (! empty($parentIds)) {
+                $parents = User::whereIn('id', $parentIds)->get();
+                foreach ($parents as $parent) {
+                    if (! $parent->getChildrenQuery(false)->exists()) {
+                        $parent->update(['class_id' => null]);
+                        $parent->tokens()->delete();
+                    }
+                }
+            }
+
+            return back()->with('success', "{$incomingCount} siswa berhasil diluluskan menjadi Alumni dan sesi login dinonaktifkan.");
         }
 
         $nextGrade = $sourceClass->grade === 'X' ? 'XI' : 'XII';
@@ -1206,6 +1222,12 @@ class MasterDataController extends Controller
         User::whereIn('id', $studentIds)->update([
             'class_id' => $targetClass->id,
         ]);
+
+        if (! empty($parentIds)) {
+            User::whereIn('id', $parentIds)->update([
+                'class_id' => $targetClass->id,
+            ]);
+        }
 
         $pesanTinggal = '';
         $sisaSiswaAsal = User::where('class_id', $sourceClass->id)
