@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'SCP - Waka Kurikulum')</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/logo-smkn1.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/logo-smkn1.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
