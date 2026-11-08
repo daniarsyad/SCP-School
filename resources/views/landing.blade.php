@@ -85,6 +85,15 @@
 
             {{-- Tombol Aksi Kanan --}}
             <div class="flex items-center gap-2.5">
+                <a href="{{ route('unduh.apk') }}"
+                   class="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-3.5 py-2.5 rounded-lg shadow-xs transition"
+                   title="Unduh Aplikasi Android SCP (.apk)">
+                    <svg class="w-4 h-4 text-emerald-100" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9998.4486.9998 1.0003 0 .5516-.4481 1.0002-.9998 1.0002m-11.046 0c-.5516 0-.9997-.4486-.9997-1.0002 0-.5517.4481-1.0003.9997-1.0003.5512 0 .9993.4486.9993 1.0003 0 .5516-.4481 1.0002-.9993 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5802 8.414 13.8427 8.125 12 8.125c-1.8428 0-3.5802.289-5.1368.8247L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                    </svg>
+                    <span>Unduh APK</span>
+                </a>
+
                 <a href="{{ route('login') }}"
                    class="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-medium px-4 py-2 sm:py-2.5 rounded-lg shadow-xs hover:shadow transition">
                     <span>Masuk Portal Waka</span>
@@ -125,7 +134,18 @@
             <a href="#panduan" onclick="closeMobileMenu()" class="block px-3 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100">
                 Panduan Akses &amp; Download App
             </a>
+<<<<<<< HEAD
             <div class="pt-2 mt-2 border-t border-slate-100">
+=======
+            <div class="pt-2 mt-2 border-t border-slate-100 flex flex-col gap-2">
+                <a href="{{ route('unduh.apk') }}"
+                   class="w-full text-center flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2.5 rounded-lg transition">
+                    <svg class="w-4 h-4 text-emerald-100" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9998.4486.9998 1.0003 0 .5516-.4481 1.0002-.9998 1.0002m-11.046 0c-.5516 0-.9997-.4486-.9997-1.0002 0-.5517.4481-1.0003.9997-1.0003.5512 0 .9993.4486.9993 1.0003 0 .5516-.4481 1.0002-.9993 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5802 8.414 13.8427 8.125 12 8.125c-1.8428 0-3.5802.289-5.1368.8247L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                    </svg>
+                    <span>Unduh Aplikasi Mobile (APK)</span>
+                </a>
+>>>>>>> 48fcd539f39b9b90c9f5ecb1e78a441b844509ea
                 <a href="{{ route('login') }}"
                    class="w-full text-center block bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium py-2.5 rounded-lg transition">
                     Masuk ke Portal Login Waka
@@ -172,6 +192,14 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                                 </svg>
+                            </a>
+                            <a href="{{ route('unduh.apk') }}"
+                               class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium px-5 py-3 rounded-lg transition shadow-xs"
+                               title="Unduh Aplikasi Android (APK)">
+                                <svg class="w-4 h-4 text-emerald-100" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9998.4486.9998 1.0003 0 .5516-.4481 1.0002-.9998 1.0002m-11.046 0c-.5516 0-.9997-.4486-.9997-1.0002 0-.5517.4481-1.0003.9997-1.0003.5512 0 .9993.4486.9993 1.0003 0 .5516-.4481 1.0002-.9993 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5802 8.414 13.8427 8.125 12 8.125c-1.8428 0-3.5802.289-5.1368.8247L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                                </svg>
+                                <span>Unduh Aplikasi Android</span>
                             </a>
                             <a href="#fitur"
                                class="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-medium px-5 py-3 rounded-lg transition shadow-xs">
@@ -470,6 +498,22 @@
                             <span class="text-xs text-slate-500 font-medium">Akses via Desktop</span>
                             <a href="{{ route('login') }}" class="text-xs font-semibold text-blue-600 hover:underline">Masuk Web Portal &rarr;</a>
                         </div>
+<<<<<<< HEAD
+=======
+                        <h3 class="text-base font-bold text-slate-900 mb-2">
+                            Masuk ke Portal Sesuai Peran
+                        </h3>
+                        <p class="text-sm text-slate-600 leading-relaxed mb-3">
+                            Klik tombol <strong class="font-semibold text-slate-800">Masuk ke Portal</strong> dan login menggunakan Username atau NIP bagi Waka Kurikulum. Untuk Guru, Siswa, dan Orang Tua dapat login melalui aplikasi mobile SCP.
+                        </p>
+                        <a href="{{ route('unduh.apk') }}"
+                           class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-md transition">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9998.4486.9998 1.0003 0 .5516-.4481 1.0002-.9998 1.0002m-11.046 0c-.5516 0-.9997-.4486-.9997-1.0002 0-.5517.4481-1.0003.9997-1.0003.5512 0 .9993.4486.9993 1.0003 0 .5516-.4481 1.0002-.9993 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5802 8.414 13.8427 8.125 12 8.125c-1.8428 0-3.5802.289-5.1368.8247L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
+                            </svg>
+                            <span>Unduh APK Mobile (Guru/Siswa/Ortu) &rarr;</span>
+                        </a>
+>>>>>>> 48fcd539f39b9b90c9f5ecb1e78a441b844509ea
                     </div>
 
                     {{-- 2. Guru Pengajar --}}
@@ -1126,6 +1170,7 @@
                     </div>
                 </div>
 
+<<<<<<< HEAD
                 {{-- Navigasi Halaman --}}
                 <div class="md:col-span-3 space-y-3">
                     <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Navigasi Halaman</div>
@@ -1135,6 +1180,17 @@
                         <li><a href="#fitur" class="hover:text-white transition">Fitur Unggulan (Web &amp; App)</a></li>
                         <li><a href="#platform" class="hover:text-white transition">Perbandingan Web vs Mobile</a></li>
                         <li><a href="#panduan" class="hover:text-white transition">Panduan Akses &amp; Download</a></li>
+=======
+                {{-- Navigasi Cepat --}}
+                <div class="md:col-span-3 space-y-2.5">
+                    <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Navigasi Halaman</div>
+                    <ul class="space-y-2 text-xs text-slate-600">
+                        <li><a href="#tentang" class="hover:text-slate-900 transition">Tentang Sistem</a></li>
+                        <li><a href="#fitur" class="hover:text-slate-900 transition">Fitur Unggulan</a></li>
+                        <li><a href="#panduan" class="hover:text-slate-900 transition">Panduan Akses</a></li>
+                        <li><a href="{{ route('unduh.apk') }}" class="text-emerald-600 hover:text-emerald-700 font-medium transition inline-flex items-center gap-1.5"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-1.0002 0-.5517.4482-1.0003.9993-1.0003.5517 0 .9998.4486.9998 1.0003 0 .5516-.4481 1.0002-.9998 1.0002m-11.046 0c-.5516 0-.9997-.4486-.9997-1.0002 0-.5517.4481-1.0003.9997-1.0003.5512 0 .9993.4486.9993 1.0003 0 .5516-.4481 1.0002-.9993 1.0002m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5802 8.414 13.8427 8.125 12 8.125c-1.8428 0-3.5802.289-5.1368.8247L4.8409 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/></svg>Unduh Aplikasi Android (APK)</a></li>
+                        <li><a href="{{ route('login') }}" class="hover:text-blue-600 font-medium transition">Portal Login Waka</a></li>
+>>>>>>> 48fcd539f39b9b90c9f5ecb1e78a441b844509ea
                     </ul>
                 </div>
 

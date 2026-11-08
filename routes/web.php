@@ -12,6 +12,16 @@ Route::get('/', function () {
     return view('landing');
 })->name('landing');
 
+Route::get('/unduh-apk', function () {
+    $path = public_path('download/scp.apk');
+    if (file_exists($path)) {
+        return response()->download($path, 'SCP.apk', [
+            'Content-Type' => 'application/vnd.android.package-archive',
+        ]);
+    }
+    return redirect()->route('landing')->with('error', 'File aplikasi sedang dipersiapkan.');
+})->name('unduh.apk');
+
 // ==================== AUTH (publik) ====================
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
