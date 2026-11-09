@@ -751,6 +751,54 @@ class ScheduleController extends Controller
         ));
     }
 
+    public function printTodayJournals(Request $request)
+    {
+        $config = SystemConfiguration::current();
+        $validated = $request->validate([
+            'date' => 'nullable|date',
+            'class_id' => 'nullable|exists:classes,id',
+            'grade' => 'nullable|in:X,XI,XII',
+            'major' => 'nullable|string|max:20',
+            'section' => 'nullable|string|max:10',
+            'teacher_id' => 'nullable|exists:users,id',
+        ]);
+
+        $selectedDate = Carbon::parse($validated['date'] ?? Carbon::now('Asia/Jakarta')->toDateString(), 'Asia/Jakarta');
+        $todayDate = $selectedDate->toDateString();
+        $todayDayName = [
+            1 => 'Senin', 2 => 'Selasa', 3 => 'Rabu', 4 => 'Kamis', 5 => 'Jumat', 6 => 'Sabtu', 7 => 'Minggu'
+        ][$selectedDate->dayOfWeekIso];
+
+        $appliedFilters = [];
+        if (!empty($validated['grade'])) $appliedFilters[] = 'Tingkat ' . $validated['grade'];
+        if (!empty($validated['major'])) $appliedFilters[] = 'Jurusan ' . $validated['major'];
+        if (!empty($validated['section'])) $appliedFilters[] = 'Rombel ' . $validated['section'];
+
+        $journals = Journal::with(['schedule.teacher', 'schedule.class', 'schedule.room', 'attendances'])
+            ->whereDate('date', $todayDate)
+            ->whereHas('schedule', function ($query) use ($validated, $config) {
+                $query->where('cycle_type', $config->active_cycle)
+                    ->when(isset($validated['class_id']), fn ($q) => $q->where('class_id', $validated['class_id']))
+                    ->when(isset($validated['teacher_id']), fn ($q) => $q->where('teacher_id', $validated['teacher_id']))
+                    ->whereHas('class', fn ($q) => $q
+                        ->when(isset($validated['grade']), fn ($cq) => $cq->where('grade', $validated['grade']))
+                        ->when(isset($validated['major']), fn ($cq) => $cq->where('major', $validated['major']))
+                        ->when(isset($validated['section']), fn ($cq) => $cq->where('section', $validated['section'])));
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $periodText = $todayDayName . ', ' . $selectedDate->translatedFormat('d F Y') . ' (Putaran ' . $config->active_cycle . ')';
+        $docSubtitle = 'Rekapitulasi Jurnal Mengajar Harian — ' . $periodText;
+
+        return view('waka.print.journals', compact(
+            'journals',
+            'periodText',
+            'docSubtitle',
+            'appliedFilters'
+        ));
+    }
+
     private function findPeriodFromInput(string $value, $dayPeriods)
     {
         $value = trim($value);

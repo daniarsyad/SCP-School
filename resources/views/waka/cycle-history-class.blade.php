@@ -3,16 +3,27 @@
 @section('title', 'Presensi Kelas - SCP')
 
 @section('content')
-    <div class="mb-5">
-        <a href="{{ route('waka.cycle.history') }}?history_id={{ $history->id }}&tab=presensi"
-           class="text-blue-600 hover:underline text-xs font-medium">
-            ← Kembali ke History Putaran
-        </a>
-        <h1 class="text-xl font-semibold text-slate-900 mt-1.5">Presensi Kelas {{ $class->class_name }}</h1>
-        <p class="text-slate-500 text-sm mt-0.5">
-            Putaran {{ $history->cycle_type }} ·
-            {{ $history->start_date->format('d M Y') }} – {{ $history->end_date->format('d M Y') }}
-        </p>
+    <div class="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <a href="{{ route('waka.cycle.history') }}?history_id={{ $history->id }}&tab=presensi"
+               class="text-blue-600 hover:underline text-xs font-medium">
+                ← Kembali ke History Putaran
+            </a>
+            <h1 class="text-xl font-semibold text-slate-900 mt-1.5">Presensi Kelas {{ $class->class_name }}</h1>
+            <p class="text-slate-500 text-sm mt-0.5">
+                Putaran {{ $history->cycle_type }} ·
+                {{ $history->start_date->format('d M Y') }} – {{ $history->end_date->format('d M Y') }}
+            </p>
+        </div>
+        <div>
+            <a href="{{ route('waka.cycle.history.class.print', [$history->id, $class->id, 'print' => 1]) }}"
+               target="_blank"
+               class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition shadow-2xs"
+               title="Cetak atau unduh rekap presensi kelas {{ $class->class_name }} (PDF)">
+                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                <span>Cetak / Export PDF Presensi</span>
+            </a>
+        </div>
     </div>
 
     <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">

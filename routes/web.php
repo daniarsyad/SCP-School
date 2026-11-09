@@ -103,4 +103,12 @@ Route::middleware(['auth', 'waka'])->prefix('waka')->name('waka.')->group(functi
 
     //daftar siswa kelas + rekap presensi
     Route::get('/master/classes/{id}/students', [MasterDataController::class, 'classStudents'])->name('master.classes.students');
+
+    // Export / Cetak PDF
+    Route::get('/master/classes/{id}/print-attendance', [MasterDataController::class, 'printClassAttendance'])->name('master.classes.print-attendance');
+    Route::get('/master/classes/{id}/print-journals', [MasterDataController::class, 'printClassJournals'])->name('master.classes.print-journals');
+    Route::get('/cycle-history/{id}/print-attendance', [SystemConfigController::class, 'printCycleAttendance'])->name('cycle.history.print-attendance');
+    Route::get('/cycle-history/{id}/kelas/{classId}/print', [SystemConfigController::class, 'printClassCycleAttendance'])->name('cycle.history.class.print');
+    Route::get('/cycle-history/{id}/print-journals', [SystemConfigController::class, 'printCycleJournals'])->name('cycle.history.print-journals');
+    Route::get('/journal-recap/print', [ScheduleController::class, 'printTodayJournals'])->name('journal.recap.print');
 });

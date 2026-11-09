@@ -141,6 +141,117 @@ class MasterDataController extends Controller
         ));
     }
 
+    public function printClassAttendance(Request $request, $id)
+    {
+        $class = Classes::with(['homeroomTeacher', 'counselingTeachers'])->findOrFail($id);
+
+        $students = User::where('class_id', $id)
+            ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
+            ->orderBy('fullname')
+            ->get();
+
+        $studentIds = $students->pluck('id');
+
+        $attendancesQuery = Attendance::whereIn('student_id', $studentIds);
+        if ($request->filled('start_date')) {
+            $attendancesQuery->whereDate('date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $attendancesQuery->whereDate('date', '<=', $request->end_date);
+        }
+
+        $attendancesGrouped = $attendancesQuery
+            ->selectRaw('student_id, status, count(*) as total')
+            ->groupBy('student_id', 'status')
+            ->get();
+
+        $studentStats = [];
+        foreach ($students as $student) {
+            $att = $attendancesGrouped->where('student_id', $student->id);
+            $hadir = (int) ($att->firstWhere('status', 'Hadir')->total ?? 0);
+            $izin = (int) ($att->firstWhere('status', 'Izin')->total ?? 0);
+            $sakit = (int) ($att->firstWhere('status', 'Sakit')->total ?? 0);
+            $alpha = (int) ($att->firstWhere('status', 'Alpha')->total ?? 0);
+            $total = $hadir + $izin + $sakit + $alpha;
+            $percentage = $total > 0 ? round(($hadir / $total) * 100, 1) : 0;
+
+            $studentStats[$student->id] = [
+                'hadir' => $hadir,
+                'izin' => $izin,
+                'sakit' => $sakit,
+                'alpha' => $alpha,
+                'total' => $total,
+                'percentage' => $percentage,
+            ];
+        }
+
+        $classTotalHadir = (int) $attendancesGrouped->where('status', 'Hadir')->sum('total');
+        $classTotalIzin = (int) $attendancesGrouped->where('status', 'Izin')->sum('total');
+        $classTotalSakit = (int) $attendancesGrouped->where('status', 'Sakit')->sum('total');
+        $classTotalAlpha = (int) $attendancesGrouped->where('status', 'Alpha')->sum('total');
+        $classTotalPresensi = $classTotalHadir + $classTotalIzin + $classTotalSakit + $classTotalAlpha;
+        $classAttendanceRate = $classTotalPresensi > 0
+            ? round(($classTotalHadir / $classTotalPresensi) * 100, 1)
+            : 0;
+
+        $periodText = 'Semua Periode Pembelajaran';
+        if ($request->filled('start_date') && $request->filled('end_date')) {
+            $periodText = \Carbon\Carbon::parse($request->start_date)->translatedFormat('d M Y') . ' – ' . \Carbon\Carbon::parse($request->end_date)->translatedFormat('d M Y');
+        }
+
+        return view('waka.print.class-attendance', compact(
+            'class',
+            'students',
+            'studentStats',
+            'classTotalHadir',
+            'classTotalIzin',
+            'classTotalSakit',
+            'classTotalAlpha',
+            'classTotalPresensi',
+            'classAttendanceRate',
+            'periodText'
+        ));
+    }
+
+    public function printClassJournals(Request $request, $id)
+    {
+        $class = Classes::with('homeroomTeacher')->findOrFail($id);
+
+        $journalsQuery = Journal::with([
+            'schedule.teacher',
+            'schedule.class',
+            'schedule.room',
+            'schedule.period',
+            'attendances',
+        ])
+            ->whereHas('schedule', fn ($q) => $q->where('class_id', $id));
+
+        $appliedFilters = ['Kelas: ' . $class->class_name];
+
+        if ($request->filled('start_date')) {
+            $journalsQuery->whereDate('date', '>=', $request->start_date);
+            $appliedFilters[] = 'Dari: ' . \Carbon\Carbon::parse($request->start_date)->format('d/m/Y');
+        }
+        if ($request->filled('end_date')) {
+            $journalsQuery->whereDate('date', '<=', $request->end_date);
+            $appliedFilters[] = 'Sampai: ' . \Carbon\Carbon::parse($request->end_date)->format('d/m/Y');
+        }
+
+        $journals = $journalsQuery->orderBy('date', 'desc')->orderBy('id', 'desc')->get();
+
+        $periodText = 'Rekap Jurnal Kelas ' . $class->class_name;
+        $docSubtitle = 'Riwayat Jurnal Mengajar Guru di Kelas ' . $class->class_name;
+
+        return view('waka.print.journals', compact(
+            'class',
+            'journals',
+            'periodText',
+            'docSubtitle',
+            'appliedFilters'
+        ));
+    }
+
     public function storeClass(Request $request)
     {
         $request->validate([

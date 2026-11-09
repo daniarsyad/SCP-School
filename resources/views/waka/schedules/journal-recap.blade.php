@@ -3,10 +3,19 @@
 @section('title', 'Rekap Jurnal - SCP')
 
 @section('content')
-    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-5">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-5">
         <div>
             <h1 class="text-xl font-semibold text-slate-900">Jurnal Mengajar</h1>
             <p class="text-slate-500 text-sm mt-0.5">{{ $today }}, {{ $todayDate }} · Putaran {{ $config->active_cycle }}</p>
+        </div>
+        <div>
+            <a href="{{ route('waka.journal.recap.print', array_merge(request()->all(), ['print' => 1])) }}"
+               target="_blank"
+               class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition shadow-2xs"
+               title="Cetak atau unduh rekap jurnal mengajar hari ini dalam format PDF">
+                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                <span>Cetak / Export PDF Jurnal</span>
+            </a>
         </div>
     </div>
 
@@ -62,9 +71,20 @@
                 </select>
             </div>
         </div>
-        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition">Terapkan Filter</button>
-            <a href="{{ route('waka.journal.recap') }}" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-1.5 rounded-md text-sm font-medium transition">Reset</a>
+        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+            <div class="flex items-center gap-2">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-sm font-medium transition">Terapkan Filter</button>
+                <a href="{{ route('waka.journal.recap') }}" class="border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 px-3.5 py-1.5 rounded-md text-sm font-medium transition">Reset</a>
+            </div>
+            <div>
+                <a href="{{ route('waka.journal.recap.print', array_merge(request()->all(), ['print' => 1])) }}"
+                   target="_blank"
+                   class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition shadow-2xs"
+                   title="Cetak jurnal mengajar sesuai filter (PDF)">
+                    <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>Cetak Jurnal Terfilter (PDF)</span>
+                </a>
+            </div>
         </div>
     </form>
 

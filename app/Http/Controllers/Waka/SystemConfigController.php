@@ -9,6 +9,7 @@ use App\Models\Journal;
 use App\Models\Attendance;
 use App\Models\Schedule;
 use App\Models\Classes;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -214,6 +215,180 @@ class SystemConfigController extends Controller
 
         return view('waka.cycle-history-class', compact(
             'history', 'class', 'config', 'journals'
+        ));
+    }
+
+    public function printCycleAttendance(Request $request, $id)
+    {
+        $history = CycleHistory::findOrFail($id);
+        $filters = $request->validate([
+            'date' => 'nullable|date',
+            'grade' => 'nullable|in:X,XI,XII',
+            'major' => 'nullable|string|max:20',
+            'section' => 'nullable|string|max:10',
+            'class_id' => 'nullable|exists:classes,id',
+            'teacher_id' => 'nullable|exists:users,id',
+        ]);
+
+        $appliedFilters = [];
+        if (!empty($filters['date'])) $appliedFilters[] = 'Tanggal: ' . Carbon::parse($filters['date'])->format('d/m/Y');
+        if (!empty($filters['grade'])) $appliedFilters[] = 'Tingkat ' . $filters['grade'];
+        if (!empty($filters['major'])) $appliedFilters[] = 'Jurusan ' . $filters['major'];
+        if (!empty($filters['section'])) $appliedFilters[] = 'Rombel ' . $filters['section'];
+
+        $journals = Journal::with(['schedule.teacher', 'schedule.class'])
+            ->whereHas('schedule', fn($q) => $q->where('cycle_type', $history->cycle_type))
+            ->whereBetween('date', [$history->start_date, $history->end_date])
+            ->when(isset($filters['date']), fn ($query) => $query->whereDate('date', $filters['date']))
+            ->whereHas('schedule', function ($query) use ($filters) {
+                $query->when(isset($filters['teacher_id']), fn ($q) => $q->where('teacher_id', $filters['teacher_id']))
+                    ->when(isset($filters['class_id']), fn ($q) => $q->where('class_id', $filters['class_id']))
+                    ->whereHas('class', fn ($q) => $q
+                        ->when(isset($filters['grade']), fn ($classQuery) => $classQuery->where('grade', $filters['grade']))
+                        ->when(isset($filters['major']), fn ($classQuery) => $classQuery->where('major', $filters['major']))
+                        ->when(isset($filters['section']), fn ($classQuery) => $classQuery->where('section', $filters['section'])));
+            })
+            ->get();
+
+        $classRecap = $journals
+            ->groupBy(fn($j) => $j->schedule->class_id)
+            ->map(function ($items) {
+                $class = $items->first()->schedule->class;
+                $journalIds = $items->pluck('id');
+                $att = Attendance::whereIn('journal_id', $journalIds)->get();
+
+                return [
+                    'class_id'   => $class->id ?? 0,
+                    'class_name' => $class->class_name ?? '-',
+                    'dates'      => $items->pluck('date')
+                        ->map(fn ($date) => $date->format('Y-m-d'))
+                        ->unique()
+                        ->sort()
+                        ->values()
+                        ->map(fn ($date) => Carbon::parse($date)->format('d M Y')),
+                    'journals'   => $items->count(),
+                    'hadir'      => $att->where('status', 'Hadir')->count(),
+                    'izin'       => $att->where('status', 'Izin')->count(),
+                    'alpha'      => $att->where('status', 'Alpha')->count(),
+                    'sakit'      => $att->where('status', 'Sakit')->count(),
+                ];
+            })
+            ->sortBy('class_name')
+            ->values();
+
+        return view('waka.print.cycle-attendance-summary', compact(
+            'history', 'classRecap', 'appliedFilters'
+        ));
+    }
+
+    public function printClassCycleAttendance($id, $classId)
+    {
+        $history = CycleHistory::findOrFail($id);
+        $class = Classes::with('homeroomTeacher')->findOrFail($classId);
+
+        $students = User::where('class_id', $classId)
+            ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
+            ->where('is_alumni', false)
+            ->orderBy('fullname')
+            ->get();
+
+        $studentIds = $students->pluck('id');
+
+        $attendancesGrouped = Attendance::whereIn('student_id', $studentIds)
+            ->whereBetween('date', [$history->start_date, $history->end_date])
+            ->selectRaw('student_id, status, count(*) as total')
+            ->groupBy('student_id', 'status')
+            ->get();
+
+        $studentStats = [];
+        foreach ($students as $student) {
+            $att = $attendancesGrouped->where('student_id', $student->id);
+            $hadir = (int) ($att->firstWhere('status', 'Hadir')->total ?? 0);
+            $izin = (int) ($att->firstWhere('status', 'Izin')->total ?? 0);
+            $sakit = (int) ($att->firstWhere('status', 'Sakit')->total ?? 0);
+            $alpha = (int) ($att->firstWhere('status', 'Alpha')->total ?? 0);
+            $total = $hadir + $izin + $sakit + $alpha;
+            $percentage = $total > 0 ? round(($hadir / $total) * 100, 1) : 0;
+
+            $studentStats[$student->id] = [
+                'hadir' => $hadir,
+                'izin' => $izin,
+                'sakit' => $sakit,
+                'alpha' => $alpha,
+                'total' => $total,
+                'percentage' => $percentage,
+            ];
+        }
+
+        $classTotalHadir = (int) $attendancesGrouped->where('status', 'Hadir')->sum('total');
+        $classTotalIzin = (int) $attendancesGrouped->where('status', 'Izin')->sum('total');
+        $classTotalSakit = (int) $attendancesGrouped->where('status', 'Sakit')->sum('total');
+        $classTotalAlpha = (int) $attendancesGrouped->where('status', 'Alpha')->sum('total');
+        $classTotalPresensi = $classTotalHadir + $classTotalIzin + $classTotalSakit + $classTotalAlpha;
+        $classAttendanceRate = $classTotalPresensi > 0
+            ? round(($classTotalHadir / $classTotalPresensi) * 100, 1)
+            : 0;
+
+        $periodText = 'Putaran ' . $history->cycle_type . ' (' . $history->start_date->translatedFormat('d F Y') . ' – ' . $history->end_date->translatedFormat('d F Y') . ')';
+
+        return view('waka.print.class-attendance', compact(
+            'class',
+            'history',
+            'students',
+            'studentStats',
+            'classTotalHadir',
+            'classTotalIzin',
+            'classTotalSakit',
+            'classTotalAlpha',
+            'classTotalPresensi',
+            'classAttendanceRate',
+            'periodText'
+        ));
+    }
+
+    public function printCycleJournals(Request $request, $id)
+    {
+        $history = CycleHistory::findOrFail($id);
+        $filters = $request->validate([
+            'date' => 'nullable|date',
+            'grade' => 'nullable|in:X,XI,XII',
+            'major' => 'nullable|string|max:20',
+            'section' => 'nullable|string|max:10',
+            'class_id' => 'nullable|exists:classes,id',
+            'teacher_id' => 'nullable|exists:users,id',
+        ]);
+
+        $appliedFilters = [];
+        if (!empty($filters['date'])) $appliedFilters[] = 'Tanggal: ' . Carbon::parse($filters['date'])->format('d/m/Y');
+        if (!empty($filters['grade'])) $appliedFilters[] = 'Tingkat ' . $filters['grade'];
+        if (!empty($filters['major'])) $appliedFilters[] = 'Jurusan ' . $filters['major'];
+        if (!empty($filters['section'])) $appliedFilters[] = 'Rombel ' . $filters['section'];
+
+        $journals = Journal::with(['schedule.teacher', 'schedule.class', 'schedule.room', 'attendances'])
+            ->whereHas('schedule', fn($q) => $q->where('cycle_type', $history->cycle_type))
+            ->whereBetween('date', [$history->start_date, $history->end_date])
+            ->when(isset($filters['date']), fn ($query) => $query->whereDate('date', $filters['date']))
+            ->whereHas('schedule', function ($query) use ($filters) {
+                $query->when(isset($filters['teacher_id']), fn ($q) => $q->where('teacher_id', $filters['teacher_id']))
+                    ->when(isset($filters['class_id']), fn ($q) => $q->where('class_id', $filters['class_id']))
+                    ->whereHas('class', fn ($q) => $q
+                        ->when(isset($filters['grade']), fn ($classQuery) => $classQuery->where('grade', $filters['grade']))
+                        ->when(isset($filters['major']), fn ($classQuery) => $classQuery->where('major', $filters['major']))
+                        ->when(isset($filters['section']), fn ($classQuery) => $classQuery->where('section', $filters['section'])));
+            })
+            ->orderBy('date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $periodText = 'Putaran ' . $history->cycle_type . ' (' . $history->start_date->translatedFormat('d F Y') . ' – ' . $history->end_date->translatedFormat('d F Y') . ')';
+        $docSubtitle = 'Rekapitulasi Jurnal Mengajar Guru pada Putaran ' . $history->cycle_type;
+
+        return view('waka.print.journals', compact(
+            'history',
+            'journals',
+            'periodText',
+            'docSubtitle',
+            'appliedFilters'
         ));
     }
 

@@ -24,11 +24,25 @@
                 </div>
                 <p class="text-slate-500 text-sm mt-1">Profil kelas, rekapitulasi kehadiran siswa, dan riwayat presensi jurnal mengajar.</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="{{ route('waka.master.classes.print-attendance', array_merge(['id' => $class->id], request()->all(), ['print' => 1])) }}"
+                   target="_blank"
+                   class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition shadow-2xs"
+                   title="Cetak atau unduh rekapitulasi presensi siswa kelas ini dalam format PDF">
+                    <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>Cetak Presensi (PDF)</span>
+                </a>
+                <a href="{{ route('waka.master.classes.print-journals', array_merge(['id' => $class->id], request()->all(), ['print' => 1])) }}"
+                   target="_blank"
+                   class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition shadow-2xs"
+                   title="Cetak atau unduh seluruh riwayat jurnal mengajar kelas ini">
+                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    <span>Cetak Jurnal (PDF)</span>
+                </a>
                 <a href="{{ route('waka.schedules.index', ['class_id' => $class->id]) }}"
                    class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition shadow-2xs">
                     <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                    Lihat Jadwal KBM Kelas
+                    <span>Jadwal KBM</span>
                 </a>
             </div>
         </div>
@@ -231,9 +245,20 @@
         </form>
 
         <div class="bg-white rounded-lg border border-slate-200 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-slate-200 flex justify-between items-center">
-                <h2 class="text-sm font-semibold text-slate-800">Daftar Sesi Pembelajaran & Presensi Siswa</h2>
-                <span class="text-xs text-slate-500">{{ $journalHistory->total() }} sesi tercatat</span>
+            <div class="px-5 py-3.5 border-b border-slate-200 flex flex-wrap justify-between items-center gap-2">
+                <div class="flex items-center gap-2.5">
+                    <h2 class="text-sm font-semibold text-slate-800">Daftar Sesi Pembelajaran & Presensi Siswa</h2>
+                    <span class="text-xs text-slate-500">{{ $journalHistory->total() }} sesi tercatat</span>
+                </div>
+                @if($journalHistory->total() > 0)
+                    <a href="{{ route('waka.master.classes.print-journals', array_merge(['id' => $class->id], request()->all(), ['print' => 1])) }}"
+                       target="_blank"
+                       class="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition shadow-2xs"
+                       title="Cetak jurnal mengajar kelas ini dalam format PDF">
+                        <svg class="w-3.5 h-3.5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                        <span>Cetak Jurnal Kelas (PDF)</span>
+                    </a>
+                @endif
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left border-collapse min-w-[750px]">
