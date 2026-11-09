@@ -91,11 +91,11 @@ class JournalController extends Controller
             ], 409);
         }
 
-        // Hitung menit keterlambatan (jika diisi setelah jam pelajaran selesai)
+        // Hitung menit keterlambatan (jika diisi setelah jam pelajaran selesai pada hari yang sama)
         $lateMinutes = 0;
         if ($isToday && $schedule->end_time && $nowTime > $schedule->end_time) {
-            $endTime = Carbon::createFromTimeString($schedule->end_time);
-            $lateMinutes = (int) $now->diffInMinutes($endTime);
+            $endTime = Carbon::parse($date . ' ' . $schedule->end_time);
+            $lateMinutes = max(0, (int) abs($now->diffInMinutes($endTime)));
         }
 
         $students = User::where('class_id', $schedule->class_id)

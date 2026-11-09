@@ -21,7 +21,7 @@ return new class extends Migration
 
         if (!Schema::hasColumn('journals', 'late_minutes')) {
             Schema::table('journals', function (Blueprint $table) {
-                $table->unsignedInteger('late_minutes')
+                $table->integer('late_minutes')
                     ->default(0)
                     ->after('photo_path');
             });
