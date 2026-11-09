@@ -703,10 +703,10 @@ class ScheduleController extends Controller
 
         $todaySchedules = Schedule::with([
             'teacher',
-            'class',
+            'class.homeroomTeacher',
             'room',
             'period',
-            'journals' => fn ($query) => $query->whereDate('date', $todayDate),
+            'journals' => fn ($query) => $query->whereDate('date', $todayDate)->with(['attendances.student']),
         ])
             ->where('cycle_type', $config->active_cycle)
             ->where('day_of_week', $today)

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Waka;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
 use App\Models\Classes;
+use App\Models\Journal;
 use App\Models\Role;
 use App\Models\Room;
 use App\Models\Schedule;
@@ -51,9 +53,9 @@ class MasterDataController extends Controller
         return view('waka.master.classes', compact('classes', 'siswaRoleId'));
     }
 
-    public function classStudents($id)
+    public function classStudents(Request $request, $id)
     {
-        $class = Classes::findOrFail($id);
+        $class = Classes::with(['homeroomTeacher', 'counselingTeachers'])->findOrFail($id);
 
         $students = User::where('class_id', $id)
             ->whereHas('role', fn ($q) => $q->where('role_name', 'Siswa'))
@@ -61,7 +63,82 @@ class MasterDataController extends Controller
             ->orderBy('fullname')
             ->get();
 
-        return view('waka.master.class-students', compact('class', 'students'));
+        $studentIds = $students->pluck('id');
+
+        // Rekapitulasi status presensi kumulatif per siswa
+        $attendancesGrouped = Attendance::whereIn('student_id', $studentIds)
+            ->selectRaw('student_id, status, count(*) as total')
+            ->groupBy('student_id', 'status')
+            ->get();
+
+        $studentStats = [];
+        foreach ($students as $student) {
+            $att = $attendancesGrouped->where('student_id', $student->id);
+            $hadir = (int) ($att->firstWhere('status', 'Hadir')->total ?? 0);
+            $izin = (int) ($att->firstWhere('status', 'Izin')->total ?? 0);
+            $sakit = (int) ($att->firstWhere('status', 'Sakit')->total ?? 0);
+            $alpha = (int) ($att->firstWhere('status', 'Alpha')->total ?? 0);
+            $total = $hadir + $izin + $sakit + $alpha;
+            $percentage = $total > 0 ? round(($hadir / $total) * 100, 1) : 0;
+
+            $studentStats[$student->id] = [
+                'hadir' => $hadir,
+                'izin' => $izin,
+                'sakit' => $sakit,
+                'alpha' => $alpha,
+                'total' => $total,
+                'percentage' => $percentage,
+            ];
+        }
+
+        // Statistik kumulatif keseluruhan kelas
+        $classTotalHadir = (int) ($attendancesGrouped->where('status', 'Hadir')->sum('total'));
+        $classTotalIzin = (int) ($attendancesGrouped->where('status', 'Izin')->sum('total'));
+        $classTotalSakit = (int) ($attendancesGrouped->where('status', 'Sakit')->sum('total'));
+        $classTotalAlpha = (int) ($attendancesGrouped->where('status', 'Alpha')->sum('total'));
+        $classTotalPresensi = $classTotalHadir + $classTotalIzin + $classTotalSakit + $classTotalAlpha;
+        $classAttendanceRate = $classTotalPresensi > 0
+            ? round(($classTotalHadir / $classTotalPresensi) * 100, 1)
+            : 0;
+
+        // Jadwal KBM mingguan kelas
+        $schedules = Schedule::with(['teacher', 'room', 'period'])
+            ->where('class_id', $id)
+            ->orderByRaw("CASE day_of_week WHEN 'Senin' THEN 1 WHEN 'Selasa' THEN 2 WHEN 'Rabu' THEN 3 WHEN 'Kamis' THEN 4 WHEN 'Jumat' THEN 5 WHEN 'Sabtu' THEN 6 END")
+            ->orderBy('start_time')
+            ->get();
+
+        // Riwayat sesi jurnal mengajar dan daftar presensi per sesi
+        $journalsQuery = Journal::with([
+            'schedule.teacher',
+            'schedule.room',
+            'schedule.period',
+            'attendances.student',
+        ])
+            ->whereHas('schedule', fn ($q) => $q->where('class_id', $id));
+
+        if ($request->filled('start_date')) {
+            $journalsQuery->whereDate('date', '>=', $request->query('start_date'));
+        }
+        if ($request->filled('end_date')) {
+            $journalsQuery->whereDate('date', '<=', $request->query('end_date'));
+        }
+
+        $journalHistory = $journalsQuery->orderBy('date', 'desc')->orderBy('id', 'desc')->paginate(10)->withQueryString();
+
+        return view('waka.master.class-students', compact(
+            'class',
+            'students',
+            'studentStats',
+            'classTotalHadir',
+            'classTotalIzin',
+            'classTotalSakit',
+            'classTotalAlpha',
+            'classTotalPresensi',
+            'classAttendanceRate',
+            'schedules',
+            'journalHistory'
+        ));
     }
 
     public function storeClass(Request $request)

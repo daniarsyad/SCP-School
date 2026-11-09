@@ -139,8 +139,9 @@
                             <td class="px-4 py-3 text-right whitespace-nowrap">
                                 <div class="flex justify-end gap-1.5">
                                     <a href="{{ route('waka.master.classes.students', $class->id) }}"
-                                       class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                                        Siswa
+                                       class="rounded border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition"
+                                       title="Lihat detail kelas dan rekap presensi">
+                                        Detail & Presensi
                                     </a>
                                     <button type="button" onclick="openEdit({{ $class->id }}, '{{ $class->grade }}', '{{ $class->major }}', '{{ $class->section }}')"
                                             class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
