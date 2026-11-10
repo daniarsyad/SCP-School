@@ -24,6 +24,7 @@ class SystemConfigController extends Controller
         return view('waka.system-config', compact('config'));
     }
 
+    // Pergantian siklus KBM dua mingguan (Putaran 1 dan Putaran 2)
     public function toggleCycle()
     {
         $config = SystemConfiguration::current();
@@ -49,6 +50,7 @@ class SystemConfigController extends Controller
         );
     }
 
+    // Penguncian jadwal KBM (kunci atau buka jadwal)
     public function toggleLock()
     {
         $config = SystemConfiguration::current();
@@ -218,6 +220,7 @@ class SystemConfigController extends Controller
         ));
     }
 
+    // Cetak dan ekspor laporan rekapitulasi presensi siklus ke format PDF
     public function printCycleAttendance(Request $request, $id)
     {
         $history = CycleHistory::findOrFail($id);
@@ -281,6 +284,7 @@ class SystemConfigController extends Controller
         ));
     }
 
+    // Cetak dan ekspor laporan rekapitulasi presensi kelas per siklus ke format PDF
     public function printClassCycleAttendance($id, $classId)
     {
         $history = CycleHistory::findOrFail($id);
@@ -346,6 +350,7 @@ class SystemConfigController extends Controller
         ));
     }
 
+    // Cetak dan ekspor laporan rekapitulasi jurnal KBM siklus ke format PDF
     public function printCycleJournals(Request $request, $id)
     {
         $history = CycleHistory::findOrFail($id);

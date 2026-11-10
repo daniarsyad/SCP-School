@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Attendance;
 use Illuminate\Support\Facades\DB;
 
+// Sinkronisasi otomatis izin atau sakit siswa ke data presensi jurnal KBM
 class AttendanceLeaveSynchronizer
 {
     public function recalculateForStudentDate(int $studentId, string $date): void

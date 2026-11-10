@@ -77,8 +77,9 @@ $deployHandler = function (Request $request, ?string $secret = null) {
 Route::match(['get', 'post'], '/deploy-migrate', $deployHandler)->middleware('throttle:10,1');
 Route::match(['get', 'post'], '/deploy-migrate-{secret}', $deployHandler)->middleware('throttle:10,1');
 
-// ==================== PUBLIK ====================
-
+// =========================================================================
+// Autentikasi masuk API dan multi peran pengguna
+// =========================================================================
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:3,1');
 Route::get('/roles', [AuthController::class, 'roles']);
@@ -104,65 +105,72 @@ Route::post('/forgot-password/reset', [
     'resetPassword',
 ])->middleware('throttle:5,1');
 
-// ==================== HARUS LOGIN ====================
-
+// =========================================================================
+// Jalur API yang dilindungi token autentikasi Sanctum
+// =========================================================================
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Authentication
+    // Authentication & Profil Pengguna
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::get('/children', [AuthController::class, 'children']);
     Route::get('/dashboard/today', [AttendanceController::class, 'todaySummary']);
 
-    // ==================== SYSTEM ====================
-
+    // =========================================================================
+    // Pengaturan siklus KBM dan penguncian jadwal
+    // =========================================================================
     Route::get('/system/config', [SystemController::class, 'config']);
     Route::put('/system/cycle', [SystemController::class, 'updateCycle']);
     Route::put('/system/schedule-lock', [SystemController::class, 'updateScheduleLock']);
     Route::get('/rooms', [SystemController::class, 'rooms']);
 
-    // ==================== WAKA KURIKULUM ====================
-
+    // ==================== WAKA KURIKULUM (API) ====================
     Route::get('/waka/dashboard-summary', [WakaController::class, 'dashboardSummary']);
     Route::put('/waka/cycle', [SystemController::class, 'updateCycle']);
     Route::put('/waka/schedule-lock', [SystemController::class, 'updateScheduleLock']);
 
-    // ==================== SCHEDULE ====================
-
+    // Daftar jadwal KBM
     Route::get('/schedules', [ScheduleController::class, 'index']);
+    // Jadwal mengajar guru yang sedang masuk
     Route::get('/schedules/my', [ScheduleController::class, 'mySchedules']);
+    // Jadwal pelajaran hari ini
     Route::get('/schedules/today', [ScheduleController::class, 'today']);
+    // Tambah jadwal mengajar baru
     Route::post('/schedules', [ScheduleController::class, 'store']);
 
-    // ==================== JOURNAL ====================
-
+    // Simpan jurnal KBM guru dan presensi massal siswa
     Route::post('/journals', [JournalController::class, 'store']);
+    // Riwayat jurnal mengajar guru
     Route::get('/journals/my', [JournalController::class, 'myJournals']);
+    // Pemantauan jurnal harian sekolah
     Route::get('/journals/monitor', [JournalController::class, 'monitor']);
 
-    // ==================== LEAVE REQUEST ====================
-
+    // Pengajuan izin atau sakit oleh siswa dan orang tua
     Route::post('/leave-requests', [LeaveRequestController::class, 'store']);
+    // Riwayat pengajuan izin pribadi
     Route::get('/leave-requests/my', [LeaveRequestController::class, 'myRequests']);
+    // Daftar pengajuan izin yang menunggu verifikasi
     Route::get('/leave-requests/pending', [LeaveRequestController::class, 'pending']);
 
+    // Tindakan verifikasi izin siswa (setujui atau tolak)
     Route::post('/leave-requests/{id}/verify', [
         LeaveRequestController::class,
         'verify',
     ]);
+    // Batalkan pengajuan izin
     Route::post('/leave-requests/{id}/cancel', [
         LeaveRequestController::class,
         'cancel',
     ]);
 
-    // ==================== ATTENDANCE ====================
-
+    // Data presensi siswa berdasarkan jurnal
     Route::get('/attendances/journal/{journalId}', [
         AttendanceController::class,
         'byJournal',
     ]);
 
+    // Rekapitulasi presensi dan perhitungan persentase kehadiran
     Route::get('/attendances/report', [
         AttendanceController::class,
         'report',
@@ -171,11 +179,13 @@ Route::middleware('auth:sanctum')->group(function () {
         AttendanceController::class,
         'reportFilters',
     ]);
+    // Ekspor laporan rekapitulasi presensi ke spreadsheet Excel (.xlsx)
     Route::get('/attendances/report/export', [
         AttendanceController::class,
         'exportReport',
     ]);
 
+    // Edit dan ralat status presensi siswa oleh guru
     Route::put('/attendances/{id}', [
         AttendanceController::class,
         'updateStatus',
@@ -186,6 +196,7 @@ Route::middleware('auth:sanctum')->group(function () {
         'updateStatus',
     ]);
 
+    // Riwayat kehadiran pribadi siswa dan orang tua
     Route::get('/attendances/my', [
         AttendanceController::class,
         'myAttendances',

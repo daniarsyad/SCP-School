@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 
 class LeaveRequestController extends Controller
 {
+    // Simpan pengajuan izin atau sakit siswa dengan status awal menunggu verifikasi
     public function store(Request $request)
     {
         $user = $request->user();
@@ -120,6 +121,7 @@ $leave = LeaveRequest::create([
         ]);
     }
 
+    // Verifikasi pengajuan izin siswa oleh wali kelas dan guru BK (setujui atau tolak)
     public function verify(Request $request, $id)
     {
         $user = $request->user();

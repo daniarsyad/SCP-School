@@ -20,6 +20,7 @@ use Throwable;
 
 class JournalController extends Controller
 {
+    // Simpan jurnal KBM guru dan presensi massal siswa
     public function store(Request $request, AttendanceLeaveSynchronizer $leaveSynchronizer)
     {
         $validator = Validator::make($request->all(), [
@@ -27,6 +28,7 @@ class JournalController extends Controller
             'date' => 'sometimes|date|before_or_equal:today',
             'topic_description' => 'required|string',
             'activity_notes' => 'nullable|string|max:5000',
+            // Validasi foto dokumentasi KBM (format gambar, maksimal 2 megabita)
             'photo' => 'required|image|mimes:jpg,jpeg,png|max:2048',
             'attendances' => 'sometimes|array|min:1',
             'attendances.*.student_id' => 'required|integer|distinct|exists:users,id',
@@ -91,7 +93,7 @@ class JournalController extends Controller
             ], 409);
         }
 
-        // Hitung menit keterlambatan (jika diisi setelah jam pelajaran selesai pada hari yang sama)
+        // Perhitungan menit keterlambatan pengisian jurnal
         $lateMinutes = 0;
         if ($isToday && $schedule->end_time && $nowTime > $schedule->end_time) {
             $endTime = Carbon::parse($date . ' ' . $schedule->end_time);
@@ -146,6 +148,7 @@ class JournalController extends Controller
         $photoPath = null;
 
         try {
+            // Transaksi database dengan pembatalan otomatis jika terjadi kegagalan
             $result = DB::transaction(function () use (
                 $schedule,
                 $user,
@@ -299,6 +302,7 @@ class JournalController extends Controller
         );
     }
 
+    // Riwayat jurnal mengajar guru
     public function myJournals(Request $request)
     {
         if (! $request->user()->isGuru() && ! $request->user()->isWaliKelas() && ! $request->user()->isGuruBK()) {
@@ -318,6 +322,7 @@ class JournalController extends Controller
         ]);
     }
 
+    // Pemantauan jurnal KBM harian seluruh guru sekolah
     public function monitor(Request $request)
     {
         $user = $request->user();

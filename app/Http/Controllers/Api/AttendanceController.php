@@ -38,6 +38,7 @@ class AttendanceController extends Controller
         return response()->json(['success' => true, 'data' => $attendances]);
     }
 
+    // Edit dan ralat status presensi siswa oleh guru
     public function updateStatus(
         Request $request,
         $id,
@@ -280,6 +281,7 @@ class AttendanceController extends Controller
         ]);
     }
 
+    // Rekapitulasi presensi dan perhitungan persentase kehadiran siswa
     public function report(Request $request)
     {
         $user = $request->user();
@@ -480,6 +482,7 @@ class AttendanceController extends Controller
         ]);
     }
 
+    // Ekspor laporan rekapitulasi presensi ke spreadsheet Excel (.xlsx)
     public function exportReport(Request $request)
     {
         $reportResponse = $this->report($request);

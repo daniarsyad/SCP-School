@@ -141,6 +141,7 @@ class MasterDataController extends Controller
         ));
     }
 
+    // Cetak dan ekspor laporan rekapitulasi presensi siswa per kelas ke format PDF
     public function printClassAttendance(Request $request, $id)
     {
         $class = Classes::with(['homeroomTeacher', 'counselingTeachers'])->findOrFail($id);
@@ -214,6 +215,7 @@ class MasterDataController extends Controller
         ));
     }
 
+    // Cetak dan ekspor laporan jurnal KBM per kelas ke format PDF
     public function printClassJournals(Request $request, $id)
     {
         $class = Classes::with('homeroomTeacher')->findOrFail($id);
@@ -974,6 +976,7 @@ class MasterDataController extends Controller
         )->deleteFileAfterSend(true);
     }
 
+    // Impor data pengguna dari file Excel (.xlsx atau .csv)
     public function importUsers(Request $request)
     {
         @ini_set('memory_limit', '512M');

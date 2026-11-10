@@ -204,6 +204,7 @@ class ScheduleController extends Controller
         ));
     }
 
+    // Unduh berkas format Excel untuk impor jadwal KBM (.xlsx)
     public function downloadImportTemplate()
     {
         $spreadsheet = new Spreadsheet();
@@ -271,6 +272,7 @@ class ScheduleController extends Controller
         )->deleteFileAfterSend(true);
     }
 
+    // Impor jadwal KBM dari file Excel (.xlsx atau .csv)
     public function import(Request $request)
     {
         $config = SystemConfiguration::current();
@@ -511,6 +513,7 @@ class ScheduleController extends Controller
         return back()->with('success', count($prepared) . ' jadwal berhasil diimpor.');
     }
 
+    // Tambah jadwal mengajar baru khusus wewenang Waka Kurikulum
     public function store(Request $request)
     {
         $config = SystemConfiguration::current();
@@ -677,6 +680,7 @@ class ScheduleController extends Controller
         return back()->with('success', 'Jadwal berhasil dihapus.');
     }
 
+    // Rekapitulasi jurnal mengajar harian seluruh guru sekolah
     public function journalRecap(Request $request)
     {
         $config = SystemConfiguration::current();
@@ -751,6 +755,7 @@ class ScheduleController extends Controller
         ));
     }
 
+    // Cetak dan ekspor laporan rekapitulasi jurnal harian ke format PDF
     public function printTodayJournals(Request $request)
     {
         $config = SystemConfiguration::current();
@@ -833,6 +838,7 @@ class ScheduleController extends Controller
         return null;
     }
 
+    // Validasi jadwal bentrok pada ruangan, kelas, dan guru yang bertabrakan
     private function checkConflict($cycle, $day, $start, $end, $teacherId, $classId, $roomId, $excludeId = null)
     {
         $query = Schedule::where('cycle_type', $cycle)

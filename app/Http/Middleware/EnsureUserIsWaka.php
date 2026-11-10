@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+// Proteksi keamanan URL khusus Waka Kurikulum (tolak akses peran lain dengan kode 403)
 class EnsureUserIsWaka
 {
     /**
