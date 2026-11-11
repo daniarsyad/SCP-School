@@ -188,5 +188,52 @@ class WakaScheduleCycleLockTest extends TestCase
         $this->assertFalse($config->is_cycle_1_locked);
         $this->assertTrue($config->is_cycle_2_locked);
     }
+
+    public function test_schedule_view_hides_add_and_import_when_current_cycle_is_locked(): void
+    {
+        // Putaran 1 dibuka, Putaran 2 dikunci
+        SystemConfiguration::first()->update([
+            'is_cycle_1_locked' => false,
+            'is_cycle_2_locked' => true,
+        ]);
+
+        // Kunjungi halaman Putaran 2 (terkunci) -> tombol tambah/import dan form tambah tidak boleh ada
+        $responseCycle2 = $this->actingAs($this->waka)->get(route('waka.schedules.index', ['cycle' => '2']));
+        $responseCycle2->assertOk();
+        $responseCycle2->assertSee('Putaran 2 Terkunci');
+        $responseCycle2->assertDontSee('+ Tambah Jadwal');
+        $responseCycle2->assertDontSee('Tambah Jadwal Baru');
+        $responseCycle2->assertDontSee('Import Excel');
+
+        // Kunjungi halaman Putaran 1 (terbuka) -> tombol tambah/import dan form tambah harus ada
+        $responseCycle1 = $this->actingAs($this->waka)->get(route('waka.schedules.index', ['cycle' => '1']));
+        $responseCycle1->assertOk();
+        $responseCycle1->assertDontSee('Putaran 1 Terkunci');
+        $responseCycle1->assertSee('+ Tambah Jadwal');
+        $responseCycle1->assertSee('Tambah Jadwal Baru');
+        $responseCycle1->assertSee('Import Excel');
+
+        // Sebaliknya: Kunci Putaran 1, Buka Putaran 2
+        SystemConfiguration::first()->update([
+            'is_cycle_1_locked' => true,
+            'is_cycle_2_locked' => false,
+        ]);
+
+        // Kunjungi Putaran 1 (sekarang terkunci) -> tombol tambah/import dan form tidak boleh ada
+        $responseCycle1Locked = $this->actingAs($this->waka)->get(route('waka.schedules.index', ['cycle' => '1']));
+        $responseCycle1Locked->assertOk();
+        $responseCycle1Locked->assertSee('Putaran 1 Terkunci');
+        $responseCycle1Locked->assertDontSee('+ Tambah Jadwal');
+        $responseCycle1Locked->assertDontSee('Tambah Jadwal Baru');
+        $responseCycle1Locked->assertDontSee('Import Excel');
+
+        // Kunjungi Putaran 2 (sekarang terbuka) -> tombol tambah/import dan form harus ada
+        $responseCycle2Open = $this->actingAs($this->waka)->get(route('waka.schedules.index', ['cycle' => '2']));
+        $responseCycle2Open->assertOk();
+        $responseCycle2Open->assertDontSee('Putaran 2 Terkunci');
+        $responseCycle2Open->assertSee('+ Tambah Jadwal');
+        $responseCycle2Open->assertSee('Tambah Jadwal Baru');
+        $responseCycle2Open->assertSee('Import Excel');
+    }
 }
 

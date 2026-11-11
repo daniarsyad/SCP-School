@@ -166,7 +166,7 @@ class ScheduleController extends Controller
         if ($request->filled('section')) {
             $classesQuery->where('section', $request->section);
         }
-        $classes = $classesQuery->orderByRaw("FIELD(grade, 'X', 'XI', 'XII')")->orderBy('major')->orderBy('section')->get();
+        $classes = $classesQuery->orderByRaw("CASE grade WHEN 'X' THEN 1 WHEN 'XI' THEN 2 WHEN 'XII' THEN 3 ELSE 4 END")->orderBy('major')->orderBy('section')->get();
 
         $rooms = Room::all()->sortBy(function ($r) {
             if (preg_match('/^Ruang\s+(\d+)$/i', $r->room_name, $m)) {

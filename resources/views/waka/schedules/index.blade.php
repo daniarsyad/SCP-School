@@ -15,7 +15,6 @@
             $isCycle1Locked = $config->isCycleLocked('1');
             $isCycle2Locked = $config->isCycleLocked('2');
             $isCurrentLocked = $config->isCycleLocked($cycle);
-            $canAddSchedule = !$isCycle1Locked || !$isCycle2Locked;
         @endphp
 
         <div class="flex flex-wrap items-center gap-2">
@@ -24,9 +23,7 @@
                     <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                     <span>Putaran {{ $cycle }} Terkunci</span>
                 </span>
-            @endif
-
-            @if(!$isCurrentLocked)
+            @else
                 <button
                     type="button"
                     onclick="document.getElementById('importForm').classList.toggle('hidden')"
@@ -34,9 +31,7 @@
                 >
                     Import Excel
                 </button>
-            @endif
 
-            @if($canAddSchedule)
                 <button
                     type="button"
                     onclick="document.getElementById('addForm').classList.toggle('hidden')"
@@ -226,7 +221,7 @@
         </div>
     @endif
 
-    @if($canAddSchedule)
+    @if(!$isCurrentLocked)
         <!-- Form Tambah -->
         <div id="addForm" class="hidden bg-white rounded-lg border border-slate-200 p-5 mb-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-4">Tambah Jadwal Baru</h2>
@@ -235,10 +230,10 @@
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">Putaran</label>
                     <select name="cycle_type" required class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white">
-                        <option value="1" {{ ($cycle == '1' && !$isCycle1Locked) || ($isCycle2Locked && !$isCycle1Locked) ? 'selected' : '' }} {{ $isCycle1Locked ? 'disabled' : '' }}>
+                        <option value="1" {{ $cycle == '1' ? 'selected' : '' }} {{ $isCycle1Locked ? 'disabled' : '' }}>
                             Putaran 1 {{ $isCycle1Locked ? '(Terkunci)' : '' }}
                         </option>
-                        <option value="2" {{ ($cycle == '2' && !$isCycle2Locked) || ($isCycle1Locked && !$isCycle2Locked) ? 'selected' : '' }} {{ $isCycle2Locked ? 'disabled' : '' }}>
+                        <option value="2" {{ $cycle == '2' ? 'selected' : '' }} {{ $isCycle2Locked ? 'disabled' : '' }}>
                             Putaran 2 {{ $isCycle2Locked ? '(Terkunci)' : '' }}
                         </option>
                     </select>
@@ -623,7 +618,7 @@
     @endif
 
     <!-- Modal Edit -->
-    @if(!$isCurrentLocked || $canAddSchedule)
+    @if(!$isCurrentLocked)
         <div id="editModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
             <div class="bg-white rounded-lg border border-slate-200 p-6 w-full max-w-lg shadow-lg">
                 <h3 class="font-semibold text-base text-slate-800 mb-4">Edit Jadwal</h3>
