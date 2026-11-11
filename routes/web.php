@@ -52,8 +52,6 @@ Route::middleware(['auth', 'waka'])->prefix('waka')->name('waka.')->group(functi
     Route::post('/toggle-cycle', [SystemConfigController::class, 'toggleCycle'])->name('toggle.cycle');
     // Penguncian jadwal KBM (kunci atau buka jadwal)
     Route::post('/toggle-lock', [SystemConfigController::class, 'toggleLock'])->name('toggle.lock');
-    // Bersihkan cache aplikasi & tampilan
-    Route::post('/clear-cache', [SystemConfigController::class, 'clearCache'])->name('clear.cache');
     
     // Master Data - Kelas
     Route::get('/master/classes', [MasterDataController::class, 'classes'])->name('master.classes');

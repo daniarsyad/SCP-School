@@ -89,17 +89,6 @@ class SystemConfigController extends Controller
         return back()->with('success', "Jadwal {$label} berhasil {$status}.");
     }
 
-    // Bersihkan cache tampilan dan optimasi sistem
-    public function clearCache()
-    {
-        try {
-            \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-            return back()->with('success', 'Cache sistem dan tampilan berhasil dibersihkan.');
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Gagal membersihkan cache: ' . $e->getMessage());
-        }
-    }
-
     public function history(Request $request)
     {
         $filters = $request->validate([
