@@ -198,9 +198,10 @@
                 <span class="mb-1 block text-xs font-medium text-slate-600">Nama Lengkap & Gelar</span>
                 <input name="fullname" value="{{ old('fullname') }}" required maxlength="100" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
             </label>
+            {{-- [VALIDASI NIP & NIS] Tambah Guru: NIP opsional, wajib angka maksimal 18 digit --}}
             <label>
-                <span class="mb-1 block text-xs font-medium text-slate-600">NIP (Opsional)</span>
-                <input name="nip" value="{{ old('nip') }}" maxlength="30" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                <span class="mb-1 block text-xs font-medium text-slate-600">NIP (Opsional, Maks. 18 digit angka)</span>
+                <input name="nip" value="{{ old('nip') }}" inputmode="numeric" pattern="[0-9]{1,18}" maxlength="18" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 18)" title="NIP wajib berupa angka dan maksimal 18 digit" placeholder="Maksimal 18 angka" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
             </label>
             <label>
                 <span class="mb-1 block text-xs font-medium text-slate-600">Username Login</span>
@@ -292,8 +293,9 @@
             <label class="sm:col-span-2"><span class="mb-1 block text-xs font-medium text-slate-600">Nama Lengkap & Gelar</span>
                 <input name="fullname" required maxlength="100" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
             </label>
-            <label><span class="mb-1 block text-xs font-medium text-slate-600">NIP (Opsional)</span>
-                <input name="nip" maxlength="30" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            {{-- [VALIDASI NIP & NIS] Edit Guru: NIP opsional, wajib angka maksimal 18 digit --}}
+            <label><span class="mb-1 block text-xs font-medium text-slate-600">NIP (Opsional, Maks. 18 digit angka)</span>
+                <input name="nip" inputmode="numeric" pattern="[0-9]{1,18}" maxlength="18" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 18)" title="NIP wajib berupa angka dan maksimal 18 digit" placeholder="Maksimal 18 angka" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
             </label>
             <label><span class="mb-1 block text-xs font-medium text-slate-600">Username Login</span>
                 <input name="username" required maxlength="50" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">

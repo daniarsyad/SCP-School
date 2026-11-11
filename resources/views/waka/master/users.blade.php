@@ -91,13 +91,15 @@
         <h2 class="text-sm font-semibold text-slate-800 mb-4">Tambah Pengguna Baru</h2>
         <form action="{{ route('waka.master.users.store') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             @csrf
+            {{-- [VALIDASI NIP & NIS] NIS wajib angka (panjang digit bebas), tidak boleh huruf --}}
             <div id="nisField" class="hidden w-full">
-                <label class="block text-xs font-medium text-slate-600 mb-1">NIS</label>
-                <input type="text" name="nis" value="{{ old('nis') }}" maxlength="30" class="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm">
+                <label class="block text-xs font-medium text-slate-600 mb-1">NIS (Wajib angka)</label>
+                <input type="text" name="nis" value="{{ old('nis') }}" inputmode="numeric" pattern="[0-9]+" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="NIS wajib berupa angka dan tidak boleh mengandung huruf" placeholder="Masukkan angka NIS" class="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm">
             </div>
+            {{-- [VALIDASI NIP & NIS] NIP wajib angka maksimal 18 digit, tidak boleh huruf --}}
             <div id="nipField" class="hidden w-full">
-                <label class="block text-xs font-medium text-slate-600 mb-1">NIP</label>
-                <input type="text" name="nip" value="{{ old('nip') }}" maxlength="30" class="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm">
+                <label class="block text-xs font-medium text-slate-600 mb-1">NIP (Maks. 18 digit angka)</label>
+                <input type="text" name="nip" value="{{ old('nip') }}" inputmode="numeric" pattern="[0-9]{1,18}" maxlength="18" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 18)" title="NIP wajib berupa angka dan maksimal 18 digit" placeholder="Maksimal 18 angka" class="w-full px-3 py-1.5 border border-slate-300 rounded-md text-sm">
             </div>
             <div>
                 <label class="block text-xs font-medium text-slate-600 mb-1">Nama Lengkap</label>
@@ -661,16 +663,18 @@
             @method('PUT')
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {{-- [VALIDASI NIP & NIS] Edit NIS wajib angka (panjang digit bebas), tidak boleh huruf --}}
                 <!-- NIS Field (khusus Siswa) -->
                 <div id="editNisField" class="hidden w-full">
-                    <label class="block text-xs font-medium text-slate-600 mb-1">NIS (Nomor Induk Siswa)</label>
-                    <input type="text" name="nis" id="editNisInput" maxlength="30" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">NIS (Nomor Induk Siswa - Wajib angka)</label>
+                    <input type="text" name="nis" id="editNisInput" inputmode="numeric" pattern="[0-9]+" oninput="this.value = this.value.replace(/[^0-9]/g, '')" title="NIS wajib berupa angka dan tidak boleh mengandung huruf" placeholder="Masukkan angka NIS" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                 </div>
 
+                {{-- [VALIDASI NIP & NIS] Edit NIP wajib angka maksimal 18 digit, tidak boleh huruf --}}
                 <!-- NIP Field (khusus Waka Kurikulum, Guru, Wali Kelas, Guru BK) -->
                 <div id="editNipField" class="hidden w-full">
-                    <label class="block text-xs font-medium text-slate-600 mb-1">NIP (Nomor Induk Pegawai)</label>
-                    <input type="text" name="nip" id="editNipInput" maxlength="30" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">NIP (Nomor Induk Pegawai - Maks. 18 digit angka)</label>
+                    <input type="text" name="nip" id="editNipInput" inputmode="numeric" pattern="[0-9]{1,18}" maxlength="18" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 18)" title="NIP wajib berupa angka dan maksimal 18 digit" placeholder="Maksimal 18 angka" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                 </div>
 
                 <!-- Nama Lengkap -->

@@ -11,6 +11,7 @@ use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\SystemConfiguration;
 use App\Models\User;
+use App\Services\IdentityNumberValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -488,7 +489,8 @@ class MasterDataController extends Controller
             'username' => 'required|string|max:50|unique:users,username',
             'email' => 'nullable|email|max:100|unique:users,email',
             'password' => 'required|string|min:6',
-            'nip' => 'nullable|string|max:30|unique:users,nip',
+            // [VALIDASI NIP & NIS] NIP opsional, wajib angka maksimal 18 digit
+            'nip' => IdentityNumberValidator::nipRules(required: false),
             'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string|max:500',
             'class_id' => 'nullable|exists:classes,id',
@@ -502,7 +504,8 @@ class MasterDataController extends Controller
         } else {
             unset($rules['bk_class_ids'], $rules['bk_class_ids.*']);
         }
-        $validated = $request->validate($rules);
+        // [VALIDASI NIP & NIS] Sertakan pesan error bahasa Indonesia
+        $validated = $request->validate($rules, IdentityNumberValidator::messages());
 
         DB::transaction(function () use ($validated, $role, $roleName) {
             $teacher = User::create([
@@ -543,7 +546,8 @@ class MasterDataController extends Controller
             'username' => 'required|string|max:50|unique:users,username,'.$teacher->id,
             'email' => 'nullable|email|max:100|unique:users,email,'.$teacher->id,
             'password' => 'nullable|string|min:6',
-            'nip' => 'nullable|string|max:30|unique:users,nip,'.$teacher->id,
+            // [VALIDASI NIP & NIS] NIP opsional, wajib angka maksimal 18 digit
+            'nip' => IdentityNumberValidator::nipRules(required: false, ignoreUserId: $teacher->id),
             'phone' => 'nullable|string|max:30',
             'address' => 'nullable|string|max:500',
             'class_id' => 'nullable|exists:classes,id',
@@ -556,7 +560,8 @@ class MasterDataController extends Controller
         if ($roleName === 'Guru BK') {
             $rules['bk_class_ids'] = 'required|array|min:1';
         }
-        $validated = $request->validate($rules);
+        // [VALIDASI NIP & NIS] Sertakan pesan error bahasa Indonesia
+        $validated = $request->validate($rules, IdentityNumberValidator::messages());
 
         DB::transaction(function () use ($teacher, $validated, $role, $roleName) {
             $data = [
@@ -604,8 +609,9 @@ class MasterDataController extends Controller
             'role_id' => 'required|exists:roles,id',
             'class_id' => 'nullable|exists:classes,id',
             'subject' => 'nullable|string|max:100',
-            'nis' => 'nullable|string|max:30',
-            'nip' => 'nullable|string|max:30',
+            // [VALIDASI NIP & NIS] NIS wajib angka (panjang bebas); NIP wajib angka maks. 18 digit
+            'nis' => IdentityNumberValidator::optionalNisFormatRules(),
+            'nip' => IdentityNumberValidator::optionalNipFormatRules(),
             'student_id' => 'nullable|integer|exists:users,id',
             'bk_class_ids' => 'sometimes|array',
             'bk_class_ids.*' => 'required|integer|distinct|exists:classes,id',
@@ -625,15 +631,12 @@ class MasterDataController extends Controller
                 $rules['subject'] = 'required|string|max:100';
             }
             if ($roleName === 'siswa') {
-                $rules['nis'] = [
-                    'required',
-                    'string',
-                    'max:30',
-                    Rule::unique('users', 'nis')->where(fn ($query) => $query->where('role_id', $role->id)),
-                ];
+                // [VALIDASI NIP & NIS] Khusus Siswa saat tambah: NIS wajib angka (panjang bebas) dan unik
+                $rules['nis'] = IdentityNumberValidator::nisRules($role->id);
             }
             if (in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true)) {
-                $rules['nip'] = 'required|string|max:30|unique:users,nip';
+                // [VALIDASI NIP & NIS] Khusus Guru/Staf saat tambah: NIP wajib angka maks. 18 digit dan unik
+                $rules['nip'] = IdentityNumberValidator::nipRules(required: true);
             }
             if ($roleName === 'orang tua') {
                 $rules['parent_class_id'] = 'required|exists:classes,id';
@@ -646,7 +649,7 @@ class MasterDataController extends Controller
             }
         }
 
-        $request->validate($rules);
+        $request->validate($rules, IdentityNumberValidator::messages());
 
         if ($roleName === 'orang tua') {
             $student = User::whereKey($request->student_id)
@@ -740,8 +743,9 @@ class MasterDataController extends Controller
             'role_id' => 'required|exists:roles,id',
             'class_id' => 'nullable|exists:classes,id',
             'subject' => 'nullable|string|max:100',
-            'nis' => 'nullable|string|max:30',
-            'nip' => 'nullable|string|max:30',
+            // [VALIDASI NIP & NIS] NIS wajib angka (panjang bebas); NIP wajib angka maks. 18 digit
+            'nis' => IdentityNumberValidator::optionalNisFormatRules(),
+            'nip' => IdentityNumberValidator::optionalNipFormatRules(),
             'student_id' => 'nullable|integer|exists:users,id',
             'bk_class_ids' => 'sometimes|array',
             'bk_class_ids.*' => 'required|integer|distinct|exists:classes,id',
@@ -761,24 +765,19 @@ class MasterDataController extends Controller
                 $rules['subject'] = 'required|string|max:100';
             }
             if ($roleName === 'siswa') {
-                $rules['nis'] = [
-                    'required',
-                    'string',
-                    'max:30',
-                    Rule::unique('users', 'nis')
-                        ->where(fn ($query) => $query->where('role_id', $role->id))
-                        ->ignore($user->id),
-                ];
+                // [VALIDASI NIP & NIS] Khusus Siswa saat edit: NIS wajib angka (panjang bebas) dan unik
+                $rules['nis'] = IdentityNumberValidator::nisRules($role->id, ignoreUserId: $user->id);
             }
             if (in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true)) {
-                $rules['nip'] = 'nullable|string|max:30|unique:users,nip,'.$user->id;
+                // [VALIDASI NIP & NIS] Khusus Guru/Staf saat edit: NIP wajib angka maks. 18 digit dan unik
+                $rules['nip'] = IdentityNumberValidator::nipRules(required: false, ignoreUserId: $user->id);
             }
             if ($roleName === 'orang tua') {
                 $rules['student_id'] = 'nullable|integer|exists:users,id';
             }
         }
 
-        $request->validate($rules);
+        $request->validate($rules, IdentityNumberValidator::messages());
 
         $data = [
             'fullname' => $request->fullname,
@@ -1133,11 +1132,19 @@ class MasterDataController extends Controller
                 $issue = 'Siswa dan Wali Kelas wajib memiliki kelas yang valid.';
             } elseif ($roleKey === 'guru bk') {
                 // Guru BK tidak wajib memiliki kelas di baris excel (bisa diatur lewat menu Data Guru)
-            } elseif ($isStudent && ($nis === '' || User::where('nis', $nis)->where('role_id', $role->id)
-                ->when($existingUser, fn ($query) => $query->where('id', '!=', $existingUser->id))->exists())) {
-                $issue = $nis === '' ? 'NIS wajib diisi untuk siswa.' : 'NIS siswa sudah digunakan.';
+            } elseif ($isStudent && $nis === '') {
+                $issue = 'NIS wajib diisi untuk siswa.';
+            } elseif ($isStudent && ! IdentityNumberValidator::isValidNis($nis)) {
+                // [VALIDASI NIP & NIS] Saat import Excel/CSV: NIS wajib angka (panjang bebas, tanpa huruf)
+                $issue = 'NIS wajib berupa angka dan tidak boleh mengandung huruf.';
+            } elseif ($isStudent && User::where('nis', $nis)->where('role_id', $role->id)
+                ->when($existingUser, fn ($query) => $query->where('id', '!=', $existingUser->id))->exists()) {
+                $issue = 'NIS siswa sudah digunakan.';
             } elseif ($isStaffWithNip && $row['nip'] === '') {
                 $issue = 'NIP wajib diisi untuk Guru, Guru BK, Wali Kelas, dan Waka Kurikulum.';
+            } elseif ($row['nip'] !== '' && ! IdentityNumberValidator::isValidNip($row['nip'])) {
+                // [VALIDASI NIP & NIS] Saat import Excel/CSV: NIP wajib angka maksimal 18 digit
+                $issue = 'NIP wajib berupa angka dan maksimal 18 digit (tidak boleh mengandung huruf).';
             } elseif ($row['nip'] !== '' && User::where('nip', $row['nip'])
                 ->when($existingUser, fn ($query) => $query->where('id', '!=', $existingUser->id))->exists()) {
                 $issue = 'NIP sudah digunakan.';

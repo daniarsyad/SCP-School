@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\PasswordOtp;
+use App\Services\IdentityNumberValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -316,26 +317,24 @@ class AuthController extends Controller
             'role_id'  => 'required|exists:roles,id',
             'class_id' => 'nullable|exists:classes,id',
             'subject'  => 'nullable|string|max:100',
-            'nis'      => 'nullable|string|max:30',
-            'nip'      => 'nullable|string|max:30|unique:users,nip',
+            // [VALIDASI NIP & NIS] NIS wajib angka (panjang bebas); NIP wajib angka maks. 18 digit
+            'nis'      => IdentityNumberValidator::optionalNisFormatRules(),
+            'nip'      => IdentityNumberValidator::nipRules(required: false),
         ];
 
         if (in_array($roleName, ['siswa', 'wali kelas'], true)) {
             $rules['class_id'] = 'required|exists:classes,id';
         }
         if ($roleName === 'siswa') {
-            $rules['nis'] = [
-                'required',
-                'string',
-                'max:30',
-                Rule::unique('users', 'nis')->where(fn ($query) => $query->where('role_id', $role->id)),
-            ];
+            // [VALIDASI NIP & NIS] Khusus Siswa: NIS wajib diisi, hanya angka (panjang bebas), dan unik
+            $rules['nis'] = IdentityNumberValidator::nisRules($role->id);
         }
         if (in_array($roleName, ['guru', 'wali kelas', 'guru bk', 'waka kurikulum'], true)) {
-            $rules['nip'] = 'required|string|max:30|unique:users,nip';
+            // [VALIDASI NIP & NIS] Khusus Guru/Staf: NIP wajib diisi, hanya angka maks. 18 digit, dan unik
+            $rules['nip'] = IdentityNumberValidator::nipRules(required: true);
         }
 
-        $request->validate($rules);
+        $request->validate($rules, IdentityNumberValidator::messages());
 
         if ($roleName === 'waka kurikulum') {
             return response()->json([
