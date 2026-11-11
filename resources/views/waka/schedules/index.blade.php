@@ -11,8 +11,22 @@
             </p>
         </div>
 
-        @if(!$config->is_schedule_locked)
-            <div class="flex flex-wrap gap-2">
+        @php
+            $isCycle1Locked = $config->isCycleLocked('1');
+            $isCycle2Locked = $config->isCycleLocked('2');
+            $isCurrentLocked = $config->isCycleLocked($cycle);
+            $canAddSchedule = !$isCycle1Locked || !$isCycle2Locked;
+        @endphp
+
+        <div class="flex flex-wrap items-center gap-2">
+            @if($isCurrentLocked)
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium">
+                    <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <span>Putaran {{ $cycle }} Terkunci</span>
+                </span>
+            @endif
+
+            @if(!$isCurrentLocked)
                 <button
                     type="button"
                     onclick="document.getElementById('importForm').classList.toggle('hidden')"
@@ -20,6 +34,9 @@
                 >
                     Import Excel
                 </button>
+            @endif
+
+            @if($canAddSchedule)
                 <button
                     type="button"
                     onclick="document.getElementById('addForm').classList.toggle('hidden')"
@@ -27,8 +44,8 @@
                 >
                     + Tambah Jadwal
                 </button>
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
 
     <!-- Ringkasan -->
@@ -62,12 +79,22 @@
                     <span class="text-xs font-medium text-slate-500">Putaran:</span>
                     <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
                         <a href="{{ request()->fullUrlWithQuery(['cycle' => '1']) }}"
-                           class="px-3 py-1 text-xs font-medium rounded transition {{ $cycle == '1' ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900' }}">
-                            Putaran 1
+                           class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition {{ $cycle == '1' ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900' }}">
+                            <span>Putaran 1</span>
+                            @if($isCycle1Locked)
+                                <span class="inline-flex items-center text-[10px] text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded font-semibold leading-none">Terkunci</span>
+                            @else
+                                <span class="inline-flex items-center text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1 py-0.5 rounded font-semibold leading-none">Terbuka</span>
+                            @endif
                         </a>
                         <a href="{{ request()->fullUrlWithQuery(['cycle' => '2']) }}"
-                           class="px-3 py-1 text-xs font-medium rounded transition {{ $cycle == '2' ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900' }}">
-                            Putaran 2
+                           class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded transition {{ $cycle == '2' ? 'bg-white text-slate-900 shadow-2xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900' }}">
+                            <span>Putaran 2</span>
+                            @if($isCycle2Locked)
+                                <span class="inline-flex items-center text-[10px] text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded font-semibold leading-none">Terkunci</span>
+                            @else
+                                <span class="inline-flex items-center text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-1 py-0.5 rounded font-semibold leading-none">Terbuka</span>
+                            @endif
                         </a>
                     </div>
                 </div>
@@ -172,7 +199,7 @@
         </div>
     </form>
 
-    @if(!$config->is_schedule_locked)
+    @if(!$isCurrentLocked)
         <div id="importForm" class="hidden bg-white rounded-lg border border-slate-200 p-5 mb-5">
             <div class="mb-4">
                 <h2 class="text-sm font-semibold text-slate-800">Import Jadwal Massal</h2>
@@ -197,7 +224,9 @@
                 </button>
             </form>
         </div>
+    @endif
 
+    @if($canAddSchedule)
         <!-- Form Tambah -->
         <div id="addForm" class="hidden bg-white rounded-lg border border-slate-200 p-5 mb-5">
             <h2 class="text-sm font-semibold text-slate-800 mb-4">Tambah Jadwal Baru</h2>
@@ -206,8 +235,12 @@
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">Putaran</label>
                     <select name="cycle_type" required class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white">
-                        <option value="1" {{ $cycle == '1' ? 'selected' : '' }}>Putaran 1</option>
-                        <option value="2" {{ $cycle == '2' ? 'selected' : '' }}>Putaran 2</option>
+                        <option value="1" {{ ($cycle == '1' && !$isCycle1Locked) || ($isCycle2Locked && !$isCycle1Locked) ? 'selected' : '' }} {{ $isCycle1Locked ? 'disabled' : '' }}>
+                            Putaran 1 {{ $isCycle1Locked ? '(Terkunci)' : '' }}
+                        </option>
+                        <option value="2" {{ ($cycle == '2' && !$isCycle2Locked) || ($isCycle1Locked && !$isCycle2Locked) ? 'selected' : '' }} {{ $isCycle2Locked ? 'disabled' : '' }}>
+                            Putaran 2 {{ $isCycle2Locked ? '(Terkunci)' : '' }}
+                        </option>
                     </select>
                 </div>
                 <div>
@@ -339,7 +372,7 @@
                             <th class="px-4 py-3">Mata Pelajaran</th>
                             <th class="px-4 py-3">Pengajar</th>
                             <th class="px-4 py-3 w-28">Ruangan</th>
-                            @if(!$config->is_schedule_locked)
+                            @if(!$isCurrentLocked)
                                 <th class="px-4 py-3 w-32 text-right">Aksi</th>
                             @endif
                         </tr>
@@ -378,7 +411,7 @@
                                 <td class="px-4 py-3 text-xs text-slate-700">
                                     {{ $s->room->room_name ?? '-' }}
                                 </td>
-                                @if(!$config->is_schedule_locked)
+                                @if(!$isCurrentLocked)
                                     <td class="px-4 py-3 text-right whitespace-nowrap">
                                         <div class="flex justify-end gap-1.5">
                                             <button type="button"
@@ -512,7 +545,7 @@
                                                                 <span class="text-[11px] text-slate-500">{{ substr($s->start_time, 0, 5) }}–{{ substr($s->end_time, 0, 5) }}</span>
                                                             </div>
 
-                                                            @if(!$config->is_schedule_locked)
+                                                            @if(!$isCurrentLocked)
                                                                 <div class="flex items-center gap-2">
                                                                     <button type="button"
                                                                             onclick="openEdit({{ $s->id }}, {{ $s->teacher_id }}, {{ $s->class_id }}, {{ $s->room_id }}, '{{ addslashes($s->subject) }}', '{{ $s->day_of_week }}', {{ $s->period_id ?? 0 }}, {{ $s->end_period_id ?? 0 }}, '{{ $s->cycle_type }}')"
@@ -559,7 +592,7 @@
                                                         </div>
                                                         <div class="flex items-center justify-between mt-1 pt-1 border-t border-slate-200/70 text-[10px] text-slate-400">
                                                             <span>Jam {{ $s->start_period_number }}–{{ $s->end_period_number }}</span>
-                                                            @if(!$config->is_schedule_locked)
+                                                            @if(!$isCurrentLocked)
                                                                 <div class="flex gap-1.5">
                                                                     <button type="button"
                                                                             onclick="openEdit({{ $s->id }}, {{ $s->teacher_id }}, {{ $s->class_id }}, {{ $s->room_id }}, '{{ addslashes($s->subject) }}', '{{ $s->day_of_week }}', {{ $s->period_id ?? 0 }}, {{ $s->end_period_id ?? 0 }}, '{{ $s->cycle_type }}')"
@@ -590,7 +623,7 @@
     @endif
 
     <!-- Modal Edit -->
-    @if(!$config->is_schedule_locked)
+    @if(!$isCurrentLocked || $canAddSchedule)
         <div id="editModal" class="fixed inset-0 bg-slate-900/50 hidden items-center justify-center z-50 p-4">
             <div class="bg-white rounded-lg border border-slate-200 p-6 w-full max-w-lg shadow-lg">
                 <h3 class="font-semibold text-base text-slate-800 mb-4">Edit Jadwal</h3>
@@ -600,8 +633,8 @@
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">Putaran</label>
                         <select name="cycle_type" id="editCycle" required class="w-full border border-slate-300 rounded-md px-3 py-1.5 text-sm bg-white">
-                            <option value="1">Putaran 1</option>
-                            <option value="2">Putaran 2</option>
+                            <option value="1" {{ $isCycle1Locked ? 'disabled' : '' }}>Putaran 1 {{ $isCycle1Locked ? '(Terkunci)' : '' }}</option>
+                            <option value="2" {{ $isCycle2Locked ? 'disabled' : '' }}>Putaran 2 {{ $isCycle2Locked ? '(Terkunci)' : '' }}</option>
                         </select>
                     </div>
                     <div>

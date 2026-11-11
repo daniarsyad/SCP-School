@@ -132,11 +132,12 @@ class ScheduleController extends Controller
         }
 
         $config = SystemConfiguration::current();
+        $targetCycle = $request->input('cycle_type', $request->input('cycle', $config->active_cycle));
 
-        if ($config->is_schedule_locked) {
+        if ($config->isCycleLocked($targetCycle)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Jadwal sudah dikunci. Tidak bisa menambah jadwal.'
+                'message' => "Jadwal Putaran {$targetCycle} sudah dikunci. Tidak bisa menambah jadwal."
             ], 403);
         }
 

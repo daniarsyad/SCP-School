@@ -25,23 +25,24 @@
             <div class="hidden sm:block h-8 w-px bg-slate-200"></div>
 
             <div>
-                <div class="text-xs font-medium text-slate-500">Status Pengelolaan Jadwal</div>
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="inline-flex items-center gap-1.5 text-sm font-semibold {{ $config->is_schedule_locked ? 'text-red-600' : 'text-emerald-600' }}">
-                        <span class="w-2 h-2 rounded-full {{ $config->is_schedule_locked ? 'bg-red-600' : 'bg-emerald-600' }}"></span>
-                        {{ $config->is_schedule_locked ? 'Terkunci' : 'Terbuka' }}
+                <div class="text-xs font-medium text-slate-500">Status Kunci Jadwal</div>
+                <div class="flex items-center gap-3 mt-1 flex-wrap">
+                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold {{ $config->isCycleLocked('1') ? 'text-red-600' : 'text-emerald-600' }}">
+                        <span class="w-2 h-2 rounded-full {{ $config->isCycleLocked('1') ? 'bg-red-600' : 'bg-emerald-600' }}"></span>
+                        Putaran 1: {{ $config->isCycleLocked('1') ? 'Terkunci' : 'Terbuka' }}
                     </span>
-                    <span class="text-xs text-slate-400">
-                        — {{ $config->is_schedule_locked ? 'Perubahan jadwal dinonaktifkan' : 'Jadwal dapat ditambah & diubah' }}
+                    <span class="inline-flex items-center gap-1.5 text-xs font-semibold {{ $config->isCycleLocked('2') ? 'text-red-600' : 'text-emerald-600' }}">
+                        <span class="w-2 h-2 rounded-full {{ $config->isCycleLocked('2') ? 'bg-red-600' : 'bg-emerald-600' }}"></span>
+                        Putaran 2: {{ $config->isCycleLocked('2') ? 'Terkunci' : 'Terbuka' }}
                     </span>
                 </div>
             </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">
-            @if($config->is_schedule_locked)
+            @if($config->isCycleLocked('1') && $config->isCycleLocked('2'))
                 <button disabled class="px-4 py-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-400 text-xs font-medium cursor-not-allowed">
-                    Ganti Putaran (Jadwal Terkunci)
+                    Ganti Putaran (Semua Terkunci)
                 </button>
             @else
                 <form action="{{ route('waka.toggle.cycle') }}" method="POST"
@@ -55,12 +56,13 @@
 
             <form action="{{ route('waka.toggle.lock') }}" method="POST">
                 @csrf
+                <input type="hidden" name="cycle" value="{{ $config->active_cycle }}">
                 <button type="submit"
                         class="px-4 py-2 rounded-lg text-xs font-semibold transition border
-                        {{ $config->is_schedule_locked
+                        {{ $config->isCycleLocked($config->active_cycle)
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
                             : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300' }}">
-                    {{ $config->is_schedule_locked ? 'Buka Kunci Jadwal' : 'Kunci Jadwal' }}
+                    {{ $config->isCycleLocked($config->active_cycle) ? "Buka Kunci Putaran {$config->active_cycle}" : "Kunci Putaran {$config->active_cycle}" }}
                 </button>
             </form>
         </div>

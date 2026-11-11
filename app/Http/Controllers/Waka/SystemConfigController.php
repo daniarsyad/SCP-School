@@ -29,8 +29,8 @@ class SystemConfigController extends Controller
     {
         $config = SystemConfiguration::current();
 
-        if ($config->is_schedule_locked) {
-            return back()->with('error', 'Tidak bisa mengubah siklus karena jadwal sudah terkunci.');
+        if ($config->is_cycle_1_locked && $config->is_cycle_2_locked) {
+            return back()->with('error', 'Tidak bisa mengubah siklus karena kedua putaran jadwal sedang terkunci.');
         }
 
         $this->saveCycleHistory($config);
@@ -40,6 +40,7 @@ class SystemConfigController extends Controller
         $config->active_cycle = $newCycle;
         $config->start_date   = Carbon::today();
         $config->end_date     = Carbon::today()->addDays(13);
+        $config->is_schedule_locked = $config->isCycleLocked($newCycle);
         $config->updated_by   = Auth::id();
         $config->save();
 
@@ -50,17 +51,38 @@ class SystemConfigController extends Controller
         );
     }
 
-    // Penguncian jadwal KBM (kunci atau buka jadwal)
-    public function toggleLock()
+    // Penguncian jadwal KBM (kunci atau buka jadwal per putaran)
+    public function toggleLock(Request $request)
     {
         $config = SystemConfiguration::current();
+        $cycle = (string) $request->input('cycle', '');
 
-        $config->is_schedule_locked = !$config->is_schedule_locked;
+        if ($cycle === '1') {
+            $config->is_cycle_1_locked = !$config->isCycleLocked('1');
+            $status = $config->is_cycle_1_locked ? 'DIKUNCI' : 'DIBUKA';
+            $label = 'Putaran 1';
+        } elseif ($cycle === '2') {
+            $config->is_cycle_2_locked = !$config->isCycleLocked('2');
+            $status = $config->is_cycle_2_locked ? 'DIKUNCI' : 'DIBUKA';
+            $label = 'Putaran 2';
+        } else {
+            $target = (string) $config->active_cycle;
+            if ($target === '1') {
+                $config->is_cycle_1_locked = !$config->isCycleLocked('1');
+                $status = $config->is_cycle_1_locked ? 'DIKUNCI' : 'DIBUKA';
+                $label = 'Putaran 1';
+            } else {
+                $config->is_cycle_2_locked = !$config->isCycleLocked('2');
+                $status = $config->is_cycle_2_locked ? 'DIKUNCI' : 'DIBUKA';
+                $label = 'Putaran 2';
+            }
+        }
+
+        $config->is_schedule_locked = $config->isCycleLocked($config->active_cycle);
         $config->updated_by = Auth::id();
         $config->save();
 
-        $status = $config->is_schedule_locked ? 'DIKUNCI' : 'DIBUKA';
-        return back()->with('success', 'Jadwal berhasil ' . $status);
+        return back()->with('success', "Jadwal {$label} berhasil {$status}.");
     }
 
     public function history(Request $request)

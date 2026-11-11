@@ -276,8 +276,8 @@ class ScheduleController extends Controller
     public function import(Request $request)
     {
         $config = SystemConfiguration::current();
-        if ($config->is_schedule_locked) {
-            return back()->with('error', 'Jadwal sedang terkunci. Tidak bisa mengimpor jadwal.');
+        if ($config->isCycleLocked('1') && $config->isCycleLocked('2')) {
+            return back()->with('error', 'Semua putaran jadwal sedang terkunci. Tidak bisa mengimpor jadwal.');
         }
 
         $validator = Validator::make($request->all(), [
@@ -365,6 +365,8 @@ class ScheduleController extends Controller
             $cycle = preg_replace('/[^\d]/', '', $cycleRaw);
             if (!in_array($cycle, ['1', '2'], true)) {
                 $rowErrors[] = 'Kolom Putaran: harus diisi 1 atau 2 (contoh: 1 atau Putaran 1).';
+            } elseif ($config->isCycleLocked($cycle)) {
+                $rowErrors[] = "Kolom Putaran: Putaran {$cycle} sedang terkunci.";
             }
 
             $teacherMatches = $teacherUsers->filter(fn ($teacher) =>
@@ -518,10 +520,6 @@ class ScheduleController extends Controller
     {
         $config = SystemConfiguration::current();
 
-        if ($config->is_schedule_locked) {
-            return back()->with('error', 'Jadwal sedang terkunci. Tidak bisa menambah jadwal.');
-        }
-
         $request->validate([
             'teacher_id'      => 'required|exists:users,id',
             'class_id'        => 'required|exists:classes,id',
@@ -532,6 +530,10 @@ class ScheduleController extends Controller
             'period_end_id'   => 'required|exists:periods,id',
             'cycle_type'      => 'required|in:1,2',
         ]);
+
+        if ($config->isCycleLocked($request->cycle_type)) {
+            return back()->with('error', "Jadwal Putaran {$request->cycle_type} sedang terkunci. Tidak bisa menambah jadwal pada putaran ini.")->withInput();
+        }
 
         $teacherSubjectError = app(ScheduleSubjectValidator::class)->errorFor(
             User::findOrFail($request->teacher_id),
@@ -592,12 +594,11 @@ class ScheduleController extends Controller
     public function update(Request $request, $id)
     {
         $config = SystemConfiguration::current();
-
-        if ($config->is_schedule_locked) {
-            return back()->with('error', 'Jadwal sedang terkunci. Tidak bisa mengubah jadwal.');
-        }
-
         $schedule = Schedule::findOrFail($id);
+
+        if ($config->isCycleLocked($schedule->cycle_type)) {
+            return back()->with('error', "Jadwal Putaran {$schedule->cycle_type} sedang terkunci. Tidak bisa mengubah jadwal ini.");
+        }
 
         $request->validate([
             'teacher_id'      => 'required|exists:users,id',
@@ -609,6 +610,10 @@ class ScheduleController extends Controller
             'period_end_id'   => 'required|exists:periods,id',
             'cycle_type'      => 'required|in:1,2',
         ]);
+
+        if ($config->isCycleLocked($request->cycle_type)) {
+            return back()->with('error', "Jadwal Putaran {$request->cycle_type} sedang terkunci. Tidak bisa memindahkan jadwal ke putaran yang terkunci.")->withInput();
+        }
 
         $teacherSubjectError = app(ScheduleSubjectValidator::class)->errorFor(
             User::findOrFail($request->teacher_id),
@@ -670,12 +675,13 @@ class ScheduleController extends Controller
     public function destroy($id)
     {
         $config = SystemConfiguration::current();
+        $schedule = Schedule::findOrFail($id);
 
-        if ($config->is_schedule_locked) {
-            return back()->with('error', 'Jadwal sedang terkunci. Tidak bisa menghapus jadwal.');
+        if ($config->isCycleLocked($schedule->cycle_type)) {
+            return back()->with('error', "Jadwal Putaran {$schedule->cycle_type} sedang terkunci. Tidak bisa menghapus jadwal ini.");
         }
 
-        Schedule::findOrFail($id)->delete();
+        $schedule->delete();
 
         return back()->with('success', 'Jadwal berhasil dihapus.');
     }
